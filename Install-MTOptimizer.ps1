@@ -4,6 +4,9 @@
 # by managing process affinity. This ensures optimal distribution of terminal processes
 # across available CPU cores to prevent overload and maintain performance.
 
+# Script Version
+$ScriptVersion = "1.2.1"
+
 If (-NOT ([Security.Principal.WindowsPrincipal][Security.Principal.WindowsIdentity]::GetCurrent()).IsInRole([Security.Principal.WindowsBuiltInRole] "Administrator")) {   
     Start-Process powershell -Verb runAs -ArgumentList "& '$($myinvocation.mycommand.definition)'"
     Break
@@ -12,8 +15,57 @@ If (-NOT ([Security.Principal.WindowsPrincipal][Security.Principal.WindowsIdenti
 $optimizerPath = "C:\Program Files\MTOptimizer"
 $hiddenPath = "$optimizerPath\system"
 $logPath = "C:\Windows\Logs\MTOptimizer"
+$versionFile = "$hiddenPath\version.txt"
+
+# Clean up old installation
+function Remove-OldInstallation {
+    Write-Host "Checking for existing installation..."
+    
+    # Stop existing service
+    $processName = "mt_core_optimizer"
+    $existingProcess = Get-Process | Where-Object { $_.ProcessName -eq $processName -or $_.Path -like "*$processName*" }
+    if ($existingProcess) {
+        Write-Host "Stopping existing optimizer process..."
+        $existingProcess | ForEach-Object {
+            try {
+                Stop-Process -Id $_.Id -Force
+                Write-Host "Stopped process ID: $($_.Id)"
+            }
+            catch {
+                Write-Host "Warning: Could not stop process ID: $($_.Id)"
+            }
+        }
+    }
+
+    # Reset any existing terminal affinities
+    Get-Process | Where-Object { $_.ProcessName -eq "terminal" } | ForEach-Object {
+        try {
+            $_.ProcessorAffinity = [IntPtr]::new(-1)
+            Write-Host "Reset affinity for terminal PID: $($_.Id)"
+        }
+        catch {
+            Write-Host "Warning: Could not reset affinity for PID: $($_.Id)"
+        }
+    }
+
+    # Remove old files
+    if (Test-Path $optimizerPath) {
+        Write-Host "Removing old installation files..."
+        Remove-Item $optimizerPath -Recurse -Force
+    }
+
+    # Remove auto-start registry entry
+    $regPath = "HKLM:\SOFTWARE\Microsoft\Windows\CurrentVersion\Run"
+    if (Get-ItemProperty -Path $regPath -Name "MTSystemOptimizer" -ErrorAction SilentlyContinue) {
+        Write-Host "Removing old auto-start configuration..."
+        Remove-ItemProperty -Path $regPath -Name "MTSystemOptimizer"
+    }
+}
 
 $optimizerScript = @'
+# Script Version
+$ScriptVersion = "1.2.1"
+
 # Get CPU info
 $Processor = Get-CimInstance -ClassName Win32_Processor
 $TotalCores = ($Processor | Measure-Object -Property NumberOfLogicalProcessors -Sum).Sum
@@ -75,7 +127,8 @@ function Get-CoreInstanceCount {
     return ($ProcessedPIDs.Values | Where-Object { $_.Core -eq $CoreID } | Measure-Object).Count
 }
 
-Write-LogMessage "MT4/MT5 Core Optimizer Started - CPU Cores: $TotalCores"
+Write-LogMessage "MT4/MT5 Core Optimizer v$ScriptVersion Started"
+Write-LogMessage "CPU Configuration: $TotalCores cores"
 Write-LogMessage "Settings - Instances Per Core: $InstancesPerCore"
 Write-LogMessage "Per Core - Max Instances: $InstancesPerCore, CPU Threshold: $MaxCoreUsageThreshold%"
 
@@ -157,20 +210,29 @@ finally {
 
 # Installation
 try {
-    # Create and hide directories
-    if(Test-Path $optimizerPath) {
-        Remove-Item $optimizerPath -Recurse -Force
-    }
+    Write-Host "MT4/MT5 Core Optimizer v$ScriptVersion Installation"
+    Write-Host "----------------------------------------"
+
+    # Clean up old installation
+    Remove-OldInstallation
     
+    # Create and hide directories
+    Write-Host "Creating directories..."
     New-Item -ItemType Directory -Path $optimizerPath -Force | Out-Null
     attrib +h $optimizerPath
     New-Item -ItemType Directory -Path $hiddenPath -Force | Out-Null
     New-Item -ItemType Directory -Path $logPath -Force | Out-Null
 
+    # Save version info
+    Write-Host "Saving version information..."
+    $ScriptVersion | Out-File $versionFile -Force
+
     # Save script
+    Write-Host "Installing optimizer script..."
     $optimizerScript | Out-File "$hiddenPath\mt_core_optimizer.ps1" -Force
 
     # Set registry for auto-start
+    Write-Host "Configuring auto-start..."
     $regPath = "HKLM:\SOFTWARE\Microsoft\Windows\CurrentVersion\Run"
     if(Get-ItemProperty -Path $regPath -Name "MTSystemOptimizer" -ErrorAction SilentlyContinue) {
         Remove-ItemProperty -Path $regPath -Name "MTSystemOptimizer"
@@ -178,10 +240,13 @@ try {
     New-ItemProperty -Path $regPath -Name "MTSystemOptimizer" -Value "powershell -WindowStyle Hidden -ExecutionPolicy Bypass -File `"$hiddenPath\mt_core_optimizer.ps1`"" -PropertyType String -Force
 
     # Set execution policy and start
+    Write-Host "Starting optimizer service..."
     Set-ExecutionPolicy -ExecutionPolicy Bypass -Scope LocalMachine -Force
     Start-Process powershell -ArgumentList "-WindowStyle Hidden -ExecutionPolicy Bypass -File `"$hiddenPath\mt_core_optimizer.ps1`"" -WindowStyle Hidden
 
-    Write-Host "MT4/MT5 Core Optimizer installed successfully - CPU Cores: $TotalCores"
+    Write-Host "----------------------------------------"
+    Write-Host "MT4/MT5 Core Optimizer v$ScriptVersion installed successfully"
+    Write-Host "CPU Cores: $((Get-CimInstance -ClassName Win32_Processor | Measure-Object -Property NumberOfLogicalProcessors -Sum).Sum)"
 }
 catch {
     Write-Host "Installation failed: $_"
