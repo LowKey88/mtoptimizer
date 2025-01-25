@@ -5,6 +5,36 @@ All notable changes to the MT4/MT5 Core Optimizer will be documented in this fil
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [2.0.0] - 2025-01-25
+
+### Complete Rewrite
+- Implemented proper object-oriented design with PowerShell classes
+- Improved state management and process tracking
+- Enhanced core selection algorithm
+- Better resource cleanup and error handling
+
+### Added
+- ProcessState class for better process tracking
+- CoreState class for improved core management
+- OptimizerConfig class for centralized configuration
+- CoreOptimizer main class for better organization
+- Proper mutex-based thread synchronization
+- Enhanced logging system with queuing
+- Better stability checks and hysteresis
+
+### Changed
+- Reduced max instances per core to 2 (from 3)
+- Lowered CPU threshold to 70% (from 75%)
+- Improved core selection logic
+- Better process termination handling
+- Enhanced system state monitoring
+
+### Fixed
+- Process tracking inconsistencies
+- Core assignment stability issues
+- Duplicate termination messages
+- Resource cleanup issues
+
 ## [1.2.8] - 2025-01-25
 
 ### Fixed
