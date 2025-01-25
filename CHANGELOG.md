@@ -5,6 +5,27 @@ All notable changes to the MT4/MT5 Core Optimizer will be documented in this fil
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [1.2.5] - 2025-01-25
+
+### Fixed
+- Log file access issues with proper mutex-based locking
+- CPU core assignment instability
+- Random core changes affecting terminal performance
+
+### Added
+- Thread-safe logging system with message queuing
+- Core history tracking to prevent frequent reassignments
+- Hysteresis buffer for core selection stability
+- 5-minute cooldown period between core changes
+
+### Changed
+- Improved logging system with batched writes
+- Enhanced core selection algorithm with stability features
+- Separated instance count and CPU usage checks
+- Added mutex-based file access control
+- Implemented proper file handle management
+- Added core assignment history tracking
+
 ## [1.2.4] - 2025-01-25
 
 ### Fixed

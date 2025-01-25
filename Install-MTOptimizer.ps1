@@ -93,6 +93,12 @@ if ($null -eq $CoreConfig) {
 
 $ProcessedPIDs = @{}
 $MaxCoreUsageThreshold = $CoreConfig.CPUThreshold
+$CoreHistory = @{
+    LastCore = $null
+    LastChange = [DateTime]::MinValue
+    Changes = @{}
+}
+$LogQueue = New-Object System.Collections.Queue
 $InstancesPerCore = $CoreConfig.MaxPerCore
 $LastTerminalCount = 0
 $LastCoreUsages = @{}
@@ -112,26 +118,49 @@ function Write-LogMessage {
         [switch]$Important
     )
     
-    # Check log size and rotate if needed
-    if ((Test-Path $LogFile) -and ((Get-Item $LogFile).Length/1MB -gt $maxLogSizeMB)) {
-        # Rotate logs
-        for ($i = $logRetentionCount; $i -gt 0; $i--) {
-            $oldLog = "$LogFile.$i"
-            $newLog = "$LogFile.$($i+1)"
-            if (Test-Path $oldLog) {
-                if ($i -eq $logRetentionCount) {
-                    Remove-Item $oldLog -Force
-                } else {
-                    Move-Item $oldLog $newLog -Force
-                }
-            }
-        }
-        Move-Item $LogFile "$LogFile.1" -Force
-    }
-
     $TimeStamp = Get-Date -Format "yyyy-MM-dd HH:mm:ss"
     $LogMessage = "$TimeStamp - $Message"
-    Add-Content -Path $LogFile -Value $LogMessage
+    
+    # Add to queue instead of writing directly
+    $LogQueue.Enqueue($LogMessage)
+    
+    # Flush if important or queue is large
+    if ($Important -or $LogQueue.Count -ge 10) {
+        Flush-LogQueue
+    }
+}
+
+function Flush-LogQueue {
+    if ($LogQueue.Count -eq 0) { return }
+    
+    try {
+        $mutex = New-Object System.Threading.Mutex($false, "MTOptimizerLogMutex")
+        $mutex.WaitOne() | Out-Null
+        
+        # Check log size and rotate if needed
+        if ((Test-Path $LogFile) -and ((Get-Item $LogFile).Length/1MB -gt $maxLogSizeMB)) {
+            # Rotate logs
+            for ($i = $logRetentionCount; $i -gt 0; $i--) {
+                $oldLog = "$LogFile.$i"
+                $newLog = "$LogFile.$($i+1)"
+                if (Test-Path $oldLog) {
+                    if ($i -eq $logRetentionCount) {
+                        Remove-Item $oldLog -Force
+                    } else {
+                        Move-Item $oldLog $newLog -Force
+                    }
+                }
+            }
+            Move-Item $LogFile "$LogFile.1" -Force
+        }
+        
+        # Batch write all queued messages
+        Add-Content -Path $LogFile -Value ($LogQueue.ToArray())
+        $LogQueue.Clear()
+    }
+    finally {
+        if ($mutex) { $mutex.ReleaseMutex(); $mutex.Dispose() }
+    }
 }
 
 function Get-CoreUsage {
@@ -158,31 +187,53 @@ function Get-CoreInstanceCount {
 function Get-BestCore {
     param (
         [hashtable]$CoreUsage,
-        [hashtable]$ProcessedPIDs
+        [hashtable]$ProcessedPIDs,
+        [int]$ProcessID
     )
     
-    # Get instance counts for each core
-    $CoreInstances = @{}
-    foreach ($core in $CoreUsage.Keys) {
-        $CoreInstances[$core] = Get-CoreInstanceCount -ProcessedPIDs $ProcessedPIDs -CoreID $core
+    # Check if process was recently moved
+    if ($CoreHistory.Changes.ContainsKey($ProcessID)) {
+        $lastChange = $CoreHistory.Changes[$ProcessID] | 
+            Sort-Object Time -Descending | 
+            Select-Object -First 1
+        
+        if ($lastChange -and (Get-Date).Subtract($lastChange.Time).TotalMinutes -lt 5) {
+            return $lastChange.Core
+        }
     }
-
-    # First try: Find cores under threshold and instance limit
-    $AvailableCores = $CoreUsage.Keys | 
+    
+    # Find cores under threshold with hysteresis
+    $AvailableCores = $CoreUsage.Keys |
         Where-Object { 
-            ($CoreUsage[$_] -lt $MaxCoreUsageThreshold) -and 
-            ($CoreInstances[$_] -lt $InstancesPerCore)
-        } | 
-        Sort-Object { $CoreInstances[$_], $CoreUsage[$_] }
-
-    if ($AvailableCores) {
-        return $AvailableCores[0]
+            $CoreUsage[$_] -lt ($MaxCoreUsageThreshold - 10)
+        }
+    
+    # Check instance limits separately
+    $ValidCores = $AvailableCores | Where-Object {
+        (Get-CoreInstanceCount -ProcessedPIDs $ProcessedPIDs -CoreID $_) -lt $InstancesPerCore
     }
-
-    # Second try: Find least loaded core if all are at capacity
-    return ($CoreUsage.Keys | 
-        Sort-Object { $CoreInstances[$_], $CoreUsage[$_] } | 
-        Select-Object -First 1)
+    
+    if ($ValidCores) {
+        $selectedCore = $ValidCores | 
+            Sort-Object { 
+                Get-CoreInstanceCount -ProcessedPIDs $ProcessedPIDs -CoreID $_ 
+            } | 
+            Select-Object -First 1
+        
+        # Update core history
+        if (-not $CoreHistory.Changes.ContainsKey($ProcessID)) {
+            $CoreHistory.Changes[$ProcessID] = @()
+        }
+        $CoreHistory.Changes[$ProcessID] += @{
+            Time = Get-Date
+            Core = $selectedCore
+        }
+        
+        return $selectedCore
+    }
+    
+    # Fallback to least loaded core
+    return ($CoreUsage.Keys | Sort-Object { $CoreUsage[$_] } | Select-Object -First 1)
 }
 
 function Write-SystemStatus {
@@ -238,7 +289,7 @@ try {
         
         foreach ($Process in $Processes) {
             if (-not $ProcessedPIDs.ContainsKey($Process.Id)) {
-                $TargetCore = Get-BestCore -CoreUsage $CoreUsage -ProcessedPIDs $ProcessedPIDs
+                $TargetCore = Get-BestCore -CoreUsage $CoreUsage -ProcessedPIDs $ProcessedPIDs -ProcessID $Process.Id
                 
                 try {
                     $Process.ProcessorAffinity = $AffinityList[$TargetCore]
@@ -264,6 +315,7 @@ try {
             }
         }
 
+        Flush-LogQueue
         Start-Sleep -Seconds 5
     }
 }
