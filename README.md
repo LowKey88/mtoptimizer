@@ -1,4 +1,4 @@
-# MT4/MT5 Core Optimizer
+# MT4/MT5 Core Optimizer v1.2.2
 
 A PowerShell-based CPU core optimization tool specifically designed for MetaTrader 4 and MetaTrader 5 trading terminals. This tool intelligently manages CPU core affinity to optimize performance and prevent terminal overload on multi-core systems.
 
@@ -20,16 +20,81 @@ A PowerShell-based CPU core optimization tool specifically designed for MetaTrad
 - Administrator privileges
 - MetaTrader 4 or MetaTrader 5 terminal(s)
 
-## Installation
+## Detailed Installation Guide
 
-1. Download `Install-MTOptimizer.ps1`
-2. Right-click the file and select "Run with PowerShell"
-3. If prompted, click "Yes" to allow administrator access
+### Download Options
 
-The script will automatically:
-- Create necessary directories
-- Configure auto-start settings
-- Start the optimization service
+1. **Direct Download**:
+   - Visit [GitHub Releases](https://github.com/LowKey88/mtoptimizer/releases)
+   - Download `Install-MTOptimizer.ps1` from the latest release
+   - Save to a known location (e.g., Downloads folder)
+
+2. **Using PowerShell**:
+   ```powershell
+   # Create directory
+   New-Item -ItemType Directory -Path "$env:USERPROFILE\Downloads\MTOptimizer" -Force
+   
+   # Download script
+   Invoke-WebRequest -Uri "https://raw.githubusercontent.com/LowKey88/mtoptimizer/main/Install-MTOptimizer.ps1" -OutFile "$env:USERPROFILE\Downloads\MTOptimizer\Install-MTOptimizer.ps1"
+   ```
+
+### Installation Steps
+
+1. **Prepare PowerShell**:
+   - Press `Win + X`
+   - Select "Windows PowerShell (Admin)" or "Terminal (Admin)"
+   - Verify you have administrator rights:
+     ```powershell
+     # Should show True
+     ([Security.Principal.WindowsPrincipal][Security.Principal.WindowsIdentity]::GetCurrent()).IsInRole([Security.Principal.WindowsBuiltInRole] "Administrator")
+     ```
+
+2. **Set Execution Policy**:
+   ```powershell
+   Set-ExecutionPolicy -ExecutionPolicy Bypass -Scope CurrentUser
+   ```
+   - Select 'Y' when prompted
+
+3. **Run Installation**:
+   - Navigate to script location:
+     ```powershell
+     cd "$env:USERPROFILE\Downloads\MTOptimizer"
+     ```
+   - Run the script:
+     ```powershell
+     .\Install-MTOptimizer.ps1
+     ```
+
+4. **Verify Installation**:
+   - Check service status:
+     ```powershell
+     Get-Process | Where-Object { $_.ProcessName -eq "mt_core_optimizer" }
+     ```
+   - Check log file:
+     ```powershell
+     Get-Content "C:\Windows\Logs\MTOptimizer\core_optimizer.log" -Tail 10
+     ```
+
+### Update Instructions
+
+1. **Download New Version**:
+   - Follow the download steps above to get the latest version
+
+2. **Install Update**:
+   - Run the new installer
+   - The script will automatically:
+     * Stop existing optimizer
+     * Clean up old files
+     * Reset terminal affinities
+     * Install new version
+     * Start the service
+
+3. **Verify Update**:
+   - Check log file for version:
+     ```powershell
+     Get-Content "C:\Windows\Logs\MTOptimizer\core_optimizer.log" -Tail 20
+     ```
+   - Should show new version number in startup message
 
 ## Configuration
 
@@ -41,10 +106,6 @@ The optimizer automatically configures itself based on your CPU cores:
 | 4 cores   | 3 instances      | 75%              |
 | 6 cores   | 3 instances      | 75%              |
 | 8+ cores  | 3 instances      | 75%              |
-
-For systems with different core counts, it defaults to:
-- 3 instances per core
-- 75% CPU usage threshold
 
 The optimizer will:
 - Assign terminals evenly across available cores
@@ -60,30 +121,72 @@ Logs are stored in `C:\Windows\Logs\MTOptimizer\core_optimizer.log` and include:
 - Error messages
 - Service start/stop events
 
-## Important Notes
+## Troubleshooting Guide
 
-- **Administrator Rights**: The script requires administrator privileges to manage core affinities
-- **Auto-start**: The optimizer is configured to start automatically with Windows
-- **System Impact**: The tool only affects MT4/MT5 terminals and doesn't modify other processes
-- **Termination**: The optimizer automatically resets all core affinities when stopped
-- **Core Assignment**: Each core can handle up to 3 terminals while maintaining performance
-- **Load Management**: Terminals are assigned based on current CPU usage and core capacity
+### 1. Installation Issues
 
-## Troubleshooting
+a) **Access Denied Errors**:
+   ```powershell
+   # Verify administrator rights
+   Start-Process powershell -Verb RunAs
+   ```
 
-1. **Installation Fails**:
-   - Ensure you're running PowerShell as Administrator
-   - Check Windows Event Viewer for detailed error messages
+b) **Execution Policy Errors**:
+   ```powershell
+   # Check current policy
+   Get-ExecutionPolicy
+   
+   # Set correct policy
+   Set-ExecutionPolicy -ExecutionPolicy Bypass -Scope CurrentUser
+   ```
 
-2. **Optimizer Not Starting**:
-   - Verify the service is listed in Task Manager
-   - Check the log file for error messages
-   - Ensure Windows PowerShell execution policy allows script execution
+### 2. Service Not Starting
 
-3. **Performance Issues**:
-   - Review the log file for core allocation patterns
-   - Verify your system meets the minimum requirements
-   - Check if antivirus software is interfering with the process
+a) **Check Process**:
+   ```powershell
+   Get-Process | Where-Object { $_.ProcessName -eq "mt_core_optimizer" }
+   ```
+
+b) **Check Logs**:
+   ```powershell
+   Get-Content "C:\Windows\Logs\MTOptimizer\core_optimizer.log" -Tail 50
+   ```
+
+c) **Manual Start**:
+   ```powershell
+   Start-Process powershell -ArgumentList "-WindowStyle Hidden -ExecutionPolicy Bypass -File 'C:\Program Files\MTOptimizer\system\mt_core_optimizer.ps1'" -WindowStyle Hidden
+   ```
+
+### 3. Performance Issues
+
+a) **Check Core Assignments**:
+   ```powershell
+   Get-Process | Where-Object { $_.ProcessName -eq "terminal" } | Select-Object Id, ProcessorAffinity
+   ```
+
+b) **Monitor CPU Usage**:
+   ```powershell
+   Get-Counter "\Processor(*)\% Processor Time" -SampleInterval 2 -MaxSamples 3
+   ```
+
+### 4. Clean Reinstall
+
+If you need to completely remove and reinstall:
+
+```powershell
+# Stop service
+Get-Process | Where-Object { $_.ProcessName -eq "mt_core_optimizer" } | Stop-Process -Force
+
+# Remove files
+Remove-Item "C:\Program Files\MTOptimizer" -Recurse -Force
+Remove-Item "C:\Windows\Logs\MTOptimizer" -Recurse -Force
+
+# Remove registry entry
+Remove-ItemProperty -Path "HKLM:\SOFTWARE\Microsoft\Windows\CurrentVersion\Run" -Name "MTSystemOptimizer" -ErrorAction SilentlyContinue
+
+# Reinstall
+.\Install-MTOptimizer.ps1
+```
 
 ## License
 
