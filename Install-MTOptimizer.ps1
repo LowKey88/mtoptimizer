@@ -26,21 +26,20 @@ for ($i = 0; $i -lt $TotalCores; $i++) {
 
 # Core settings
 $Config = @{
-    2 = @{ MaxPerCore = 3; CPUThreshold = 75; MaxInstances = 6 }
-    4 = @{ MaxPerCore = 3; CPUThreshold = 70; MaxInstances = 12 }
-    6 = @{ MaxPerCore = 3; CPUThreshold = 65; MaxInstances = 18 }
-    8 = @{ MaxPerCore = 2; CPUThreshold = 60; MaxInstances = 18 }
+    2 = @{ MaxPerCore = 3; CPUThreshold = 75 }  # Balanced for minimal cores
+    4 = @{ MaxPerCore = 3; CPUThreshold = 75 }  # Consistent threshold
+    6 = @{ MaxPerCore = 3; CPUThreshold = 75 }  # Unified configuration
+    8 = @{ MaxPerCore = 2; CPUThreshold = 75 }  # Optimized for high core count
 }
 
 $CoreConfig = $Config[$TotalCores]
 if ($null -eq $CoreConfig) {
-    $CoreConfig = @{ MaxPerCore = 2; CPUThreshold = 70; MaxInstances = 6 }
+    $CoreConfig = @{ MaxPerCore = 2; CPUThreshold = 70 }
 }
 
 $ProcessedPIDs = @{}
 $MaxCoreUsageThreshold = $CoreConfig.CPUThreshold
 $InstancesPerCore = $CoreConfig.MaxPerCore
-$MaxInstances = $CoreConfig.MaxInstances
 
 $LogPath = "C:\Windows\Logs\MTOptimizer"
 $LogFile = Join-Path $LogPath "core_optimizer.log"
@@ -77,7 +76,7 @@ function Get-CoreInstanceCount {
 }
 
 Write-LogMessage "MT4/MT5 Core Optimizer Started - CPU Cores: $TotalCores"
-Write-LogMessage "Settings - Max Instances: $MaxInstances"
+Write-LogMessage "Settings - Instances Per Core: $InstancesPerCore"
 Write-LogMessage "Per Core - Max Instances: $InstancesPerCore, CPU Threshold: $MaxCoreUsageThreshold%"
 
 # Register shutdown event
@@ -95,13 +94,6 @@ try {
         $Processes = Get-Process | Where-Object { $_.ProcessName -eq "terminal" }
         $CoreUsage = Get-CoreUsage
         
-        # Check total instances against maximum allowed
-        if ($Processes.Count -ge $MaxInstances) {
-            Write-LogMessage "Maximum instance limit ($MaxInstances) reached. Skipping new assignments."
-            Start-Sleep -Seconds 5
-            continue
-        }
-
         # Log current terminal count
         Write-LogMessage "Current Terminal Count: $($Processes.Count)"
         
@@ -132,7 +124,7 @@ try {
                     }
                 }
                 else {
-                    Write-LogMessage "No available cores for terminal (PID: $($Process.Id)) - System at capacity"
+                    Write-LogMessage "No available cores for terminal (PID: $($Process.Id)) - All cores at threshold or max instances per core"
                 }
             }
         }
