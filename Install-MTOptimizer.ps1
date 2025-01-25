@@ -5,7 +5,7 @@
 # across available CPU cores to prevent overload and maintain performance.
 
 # Script Version
-$ScriptVersion = "1.2.1"
+$ScriptVersion = "1.2.3"
 
 If (-NOT ([Security.Principal.WindowsPrincipal][Security.Principal.WindowsIdentity]::GetCurrent()).IsInRole([Security.Principal.WindowsBuiltInRole] "Administrator")) {   
     Start-Process powershell -Verb runAs -ArgumentList "& '$($myinvocation.mycommand.definition)'"
@@ -16,6 +16,8 @@ $optimizerPath = "C:\Program Files\MTOptimizer"
 $hiddenPath = "$optimizerPath\system"
 $logPath = "C:\Windows\Logs\MTOptimizer"
 $versionFile = "$hiddenPath\version.txt"
+$maxLogSizeMB = 10
+$logRetentionCount = 5
 
 # Clean up old installation
 function Remove-OldInstallation {
@@ -64,7 +66,7 @@ function Remove-OldInstallation {
 
 $optimizerScript = @'
 # Script Version
-$ScriptVersion = "1.2.1"
+$ScriptVersion = "1.2.3"
 
 # Get CPU info
 $Processor = Get-CimInstance -ClassName Win32_Processor
@@ -92,15 +94,41 @@ if ($null -eq $CoreConfig) {
 $ProcessedPIDs = @{}
 $MaxCoreUsageThreshold = $CoreConfig.CPUThreshold
 $InstancesPerCore = $CoreConfig.MaxPerCore
+$LastTerminalCount = 0
+$LastCoreUsages = @{}
 
 $LogPath = "C:\Windows\Logs\MTOptimizer"
 $LogFile = Join-Path $LogPath "core_optimizer.log"
+$maxLogSizeMB = 10
+$logRetentionCount = 5
+
 if (-not (Test-Path $LogPath)) {
     New-Item -ItemType Directory -Path $LogPath -Force
 }
 
 function Write-LogMessage {
-    param([string]$Message)
+    param(
+        [string]$Message,
+        [switch]$Important
+    )
+    
+    # Check log size and rotate if needed
+    if ((Test-Path $LogFile) -and ((Get-Item $LogFile).Length/1MB -gt $maxLogSizeMB)) {
+        # Rotate logs
+        for ($i = $logRetentionCount; $i -gt 0; $i--) {
+            $oldLog = "$LogFile.$i"
+            $newLog = "$LogFile.$($i+1)"
+            if (Test-Path $oldLog) {
+                if ($i -eq $logRetentionCount) {
+                    Remove-Item $oldLog -Force
+                } else {
+                    Move-Item $oldLog $newLog -Force
+                }
+            }
+        }
+        Move-Item $LogFile "$LogFile.1" -Force
+    }
+
     $TimeStamp = Get-Date -Format "yyyy-MM-dd HH:mm:ss"
     $LogMessage = "$TimeStamp - $Message"
     Add-Content -Path $LogFile -Value $LogMessage
@@ -127,19 +155,47 @@ function Get-CoreInstanceCount {
     return ($ProcessedPIDs.Values | Where-Object { $_.Core -eq $CoreID } | Measure-Object).Count
 }
 
-Write-LogMessage "MT4/MT5 Core Optimizer v$ScriptVersion Started"
-Write-LogMessage "CPU Configuration: $TotalCores cores"
-Write-LogMessage "Settings - Instances Per Core: $InstancesPerCore"
-Write-LogMessage "Per Core - Max Instances: $InstancesPerCore, CPU Threshold: $MaxCoreUsageThreshold%"
+function Write-SystemStatus {
+    param (
+        [hashtable]$CoreUsage,
+        [int]$TerminalCount
+    )
+    
+    # Only log if there are significant changes
+    $usageChanged = $false
+    foreach ($core in $CoreUsage.Keys) {
+        if (-not $LastCoreUsages.ContainsKey($core) -or 
+            [Math]::Abs($LastCoreUsages[$core] - $CoreUsage[$core]) -gt 10) {
+            $usageChanged = $true
+            break
+        }
+    }
+
+    if ($usageChanged -or $TerminalCount -ne $LastTerminalCount) {
+        Write-LogMessage "System Status - Terminals: $TerminalCount" -Important
+        foreach ($core in $CoreUsage.Keys | Sort-Object) {
+            $usage = [Math]::Round($CoreUsage[$core], 2)
+            $instances = Get-CoreInstanceCount -ProcessedPIDs $ProcessedPIDs -CoreID $core
+            Write-LogMessage "Core $core - Usage: $usage%, Instances: $instances" -Important
+        }
+        $LastCoreUsages = $CoreUsage.Clone()
+        $LastTerminalCount = $TerminalCount
+    }
+}
+
+Write-LogMessage "MT4/MT5 Core Optimizer v$ScriptVersion Started" -Important
+Write-LogMessage "CPU Configuration: $TotalCores cores" -Important
+Write-LogMessage "Settings - Instances Per Core: $InstancesPerCore" -Important
+Write-LogMessage "Per Core - Max Instances: $InstancesPerCore, CPU Threshold: $MaxCoreUsageThreshold%" -Important
 
 # Register shutdown event
 $null = Register-EngineEvent PowerShell.Exiting -Action {
-    Write-LogMessage "Core Optimizer service stopping..."
+    Write-LogMessage "Core Optimizer service stopping..." -Important
     Get-Process | Where-Object { $_.ProcessName -eq "terminal" } | ForEach-Object {
-        Write-LogMessage "Resetting affinity for PID: $($_.Id)"
+        Write-LogMessage "Resetting affinity for PID: $($_.Id)" -Important
         $_.ProcessorAffinity = [IntPtr]::new(-1)
     }
-    Write-LogMessage "Core Optimizer service stopped at $(Get-Date -Format 'yyyy-MM-dd HH:mm:ss')"
+    Write-LogMessage "Core Optimizer service stopped at $(Get-Date -Format 'yyyy-MM-dd HH:mm:ss')" -Important
 } -SupportEvent
 
 try {
@@ -147,8 +203,8 @@ try {
         $Processes = Get-Process | Where-Object { $_.ProcessName -eq "terminal" }
         $CoreUsage = Get-CoreUsage
         
-        # Log current terminal count
-        Write-LogMessage "Current Terminal Count: $($Processes.Count)"
+        # Log system status with changes only
+        Write-SystemStatus -CoreUsage $CoreUsage -TerminalCount $Processes.Count
         
         foreach ($Process in $Processes) {
             if (-not $ProcessedPIDs.ContainsKey($Process.Id)) {
@@ -169,15 +225,15 @@ try {
                             Timestamp = Get-Date
                             ProcessName = $Process.ProcessName
                         }
-                        Write-LogMessage "Assigned terminal (PID: $($Process.Id)) to Core $TargetCore"
-                        Write-LogMessage "Status - Core $TargetCore Usage: $([math]::Round($CoreUsage[$TargetCore], 2))%"
+                        Write-LogMessage "Assigned terminal (PID: $($Process.Id)) to Core $TargetCore" -Important
+                        Write-LogMessage "Status - Core $TargetCore Usage: $([math]::Round($CoreUsage[$TargetCore], 2))%" -Important
                     }
                     catch {
-                        Write-LogMessage "Error setting affinity for PID $($Process.Id): $_"
+                        Write-LogMessage "Error setting affinity for PID $($Process.Id): $_" -Important
                     }
                 }
                 else {
-                    Write-LogMessage "No available cores for terminal (PID: $($Process.Id)) - All cores at threshold or max instances per core"
+                    Write-LogMessage "No available cores for terminal (PID: $($Process.Id)) - All cores at threshold or max instances per core" -Important
                 }
             }
         }
@@ -185,7 +241,7 @@ try {
         $ProcessedPIDs.Clone().Keys | ForEach-Object {
             if (-not (Get-Process -Id $_ -ErrorAction SilentlyContinue)) {
                 $ProcessInfo = $ProcessedPIDs[$_]
-                Write-LogMessage "Terminal terminated - PID: $_ from Core $($ProcessInfo.Core)"
+                Write-LogMessage "Terminal terminated - PID: $_ from Core $($ProcessInfo.Core)" -Important
                 $ProcessedPIDs.Remove($_)
             }
         }
@@ -194,17 +250,17 @@ try {
     }
 }
 catch {
-    Write-LogMessage "Critical Error: $_"
-    Write-LogMessage "Script terminated unexpectedly"
+    Write-LogMessage "Critical Error: $_" -Important
+    Write-LogMessage "Script terminated unexpectedly" -Important
     throw
 }
 finally {
-    Write-LogMessage "Core Optimizer cleanup initiated"
+    Write-LogMessage "Core Optimizer cleanup initiated" -Important
     Get-Process | Where-Object { $_.ProcessName -eq "terminal" } | ForEach-Object {
-        Write-LogMessage "Resetting affinity for PID: $($_.Id)"
+        Write-LogMessage "Resetting affinity for PID: $($_.Id)" -Important
         $_.ProcessorAffinity = [IntPtr]::new(-1)
     }
-    Write-LogMessage "Core Optimizer service stopped at $(Get-Date -Format 'yyyy-MM-dd HH:mm:ss')"
+    Write-LogMessage "Core Optimizer service stopped at $(Get-Date -Format 'yyyy-MM-dd HH:mm:ss')" -Important
 }
 '@
 
