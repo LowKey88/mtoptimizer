@@ -5,7 +5,7 @@
 # across available CPU cores to prevent overload and maintain performance.
 
 # Script Version
-$ScriptVersion = "2.0.0"
+$ScriptVersion = "2.0.1"
 
 # Ensure running as Administrator
 If (-NOT ([Security.Principal.WindowsPrincipal][Security.Principal.WindowsIdentity]::GetCurrent()).IsInRole([Security.Principal.WindowsBuiltInRole] "Administrator")) {   
@@ -68,7 +68,7 @@ function Remove-OldInstallation {
 
 $optimizerScript = @'
 # Script Version
-$ScriptVersion = "2.0.0"
+$ScriptVersion = "2.0.1"
 
 # State Management
 class ProcessState {
@@ -294,19 +294,26 @@ class CoreOptimizer {
         # Log significant changes
         $terminalCount = $terminals.Count
         $usageChanged = $false
+        $significantChange = $false
 
         foreach ($core in $this.CoreStates.Values) {
             if (-not $this.LastCoreUsages.ContainsKey($core.CoreID) -or 
-                [Math]::Abs($this.LastCoreUsages[$core.CoreID] - $core.CurrentUsage) -gt 10) {
+                [Math]::Abs($this.LastCoreUsages[$core.CoreID] - $core.CurrentUsage) -gt 20) {
                 $usageChanged = $true
-                break
+                # Check if usage crossed threshold boundaries
+                if ($core.CurrentUsage -gt $this.Config.CPUThreshold -or 
+                    ($this.LastCoreUsages.ContainsKey($core.CoreID) -and 
+                     $this.LastCoreUsages[$core.CoreID] -gt $this.Config.CPUThreshold)) {
+                    $significantChange = $true
+                    break
+                }
             }
         }
 
-        if ($usageChanged -or $terminalCount -ne $this.LastTerminalCount) {
+        if ($significantChange -or $terminalCount -ne $this.LastTerminalCount) {
             $this.WriteLog("System Status - Terminals: $terminalCount", $true)
             foreach ($core in $this.CoreStates.Values) {
-                $this.WriteLog("Core $($core.CoreID) - Usage: $([Math]::Round($core.CurrentUsage, 2))%, Instances: $($core.AssignedProcessCount)", $true)
+                $this.WriteLog("Core $($core.CoreID) - Usage: $([Math]::Round($core.CurrentUsage, 2))%, Instances: $($core.AssignedProcessCount)", $significantChange)
                 $this.LastCoreUsages[$core.CoreID] = $core.CurrentUsage
             }
             $this.LastTerminalCount = $terminalCount
