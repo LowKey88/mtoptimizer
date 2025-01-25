@@ -35,17 +35,22 @@ The script will automatically:
 
 The optimizer automatically configures itself based on your CPU cores:
 
-| CPU Cores | Max Instances Per Core | CPU Usage Threshold |
-|-----------|----------------------|-------------------|
-| 1 core    | 4 instances         | 80%              |
-| 2 cores   | 3 instances         | 75%              |
-| 4 cores   | 2 instances         | 70%              |
-| 6 cores   | 2 instances         | 65%              |
-| 8+ cores  | 2 instances         | 60%              |
+| CPU Cores | Instances Per Core | CPU Usage Threshold |
+|-----------|-------------------|-------------------|
+| 2 cores   | 3 instances      | 75%              |
+| 4 cores   | 3 instances      | 75%              |
+| 6 cores   | 3 instances      | 75%              |
+| 8+ cores  | 3 instances      | 75%              |
 
 For systems with different core counts, it defaults to:
-- 2 instances per core
-- 70% CPU usage threshold
+- 3 instances per core
+- 75% CPU usage threshold
+
+The optimizer will:
+- Assign terminals evenly across available cores
+- Monitor CPU usage to prevent overload
+- Dynamically adjust assignments based on system load
+- Continue optimizing beyond initial assignments when capacity is available
 
 ## Logging
 
@@ -61,6 +66,8 @@ Logs are stored in `C:\Windows\Logs\MTOptimizer\core_optimizer.log` and include:
 - **Auto-start**: The optimizer is configured to start automatically with Windows
 - **System Impact**: The tool only affects MT4/MT5 terminals and doesn't modify other processes
 - **Termination**: The optimizer automatically resets all core affinities when stopped
+- **Core Assignment**: Each core can handle up to 3 terminals while maintaining performance
+- **Load Management**: Terminals are assigned based on current CPU usage and core capacity
 
 ## Troubleshooting
 
