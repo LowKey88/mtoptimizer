@@ -26,15 +26,15 @@ for ($i = 0; $i -lt $TotalCores; $i++) {
 
 # Core settings
 $Config = @{
-    2 = @{ MaxPerCore = 3; CPUThreshold = 75 }  # Balanced for minimal cores
-    4 = @{ MaxPerCore = 3; CPUThreshold = 75 }  # Consistent threshold
-    6 = @{ MaxPerCore = 3; CPUThreshold = 75 }  # Unified configuration
-    8 = @{ MaxPerCore = 2; CPUThreshold = 75 }  # Optimized for high core count
+    2 = @{ MaxPerCore = 3; CPUThreshold = 75 }  # CPU 0 and CPU 1, 3 terminals each
+    4 = @{ MaxPerCore = 3; CPUThreshold = 75 }  # CPU 0-3, 3 terminals each
+    6 = @{ MaxPerCore = 3; CPUThreshold = 75 }  # CPU 0-5, 3 terminals each
+    8 = @{ MaxPerCore = 3; CPUThreshold = 75 }  # CPU 0-7, 3 terminals each
 }
 
 $CoreConfig = $Config[$TotalCores]
 if ($null -eq $CoreConfig) {
-    $CoreConfig = @{ MaxPerCore = 2; CPUThreshold = 70 }
+    $CoreConfig = @{ MaxPerCore = 3; CPUThreshold = 75 }  # Default configuration
 }
 
 $ProcessedPIDs = @{}
