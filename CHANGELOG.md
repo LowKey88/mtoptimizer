@@ -5,6 +5,12 @@ All notable changes to the MT4/MT5 Core Optimizer will be documented in this fil
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [1.2.8] - 2025-01-25
+
+### Fixed
+- Removed duplicate process termination messages
+- Improved shutdown event handler cleanup
+
 ## [1.2.7] - 2025-01-25
 
 ### Fixed

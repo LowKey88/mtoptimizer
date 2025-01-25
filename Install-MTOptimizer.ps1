@@ -5,7 +5,7 @@
 # across available CPU cores to prevent overload and maintain performance.
 
 # Script Version
-$ScriptVersion = "1.2.7"
+$ScriptVersion = "1.2.8"
 
 If (-NOT ([Security.Principal.WindowsPrincipal][Security.Principal.WindowsIdentity]::GetCurrent()).IsInRole([Security.Principal.WindowsBuiltInRole] "Administrator")) {   
     Start-Process powershell -Verb runAs -ArgumentList "& '$($myinvocation.mycommand.definition)'"
@@ -66,7 +66,7 @@ function Remove-OldInstallation {
 
 $optimizerScript = @'
 # Script Version
-$ScriptVersion = "1.2.7"
+$ScriptVersion = "1.2.8"
 
 # Get CPU info
 $Processor = Get-CimInstance -ClassName Win32_Processor
@@ -273,8 +273,6 @@ Write-LogMessage "Per Core - Max Instances: $InstancesPerCore, CPU Threshold: $M
 $null = Register-EngineEvent PowerShell.Exiting -Action {
     Write-LogMessage "Core Optimizer service stopping..." -Important
     Get-Process | Where-Object { $_.ProcessName -eq "terminal" } | ForEach-Object {
-        Write-LogMessage "Resetting affinity for PID: $($_.Id)" -Important
-        $_.ProcessorAffinity = [IntPtr]::new(-1)
     }
     Write-LogMessage "Core Optimizer service stopped at $(Get-Date -Format 'yyyy-MM-dd HH:mm:ss')" -Important
 } -SupportEvent
@@ -310,7 +308,7 @@ try {
             if (-not (Get-Process -Id $_ -ErrorAction SilentlyContinue)) {
                 $ProcessInfo = $ProcessedPIDs[$_]
                 if ($ProcessInfo) {
-                    Write-LogMessage "Terminal terminated - PID: $_ from Core $($ProcessInfo.Core)" -Important
+                    Write-LogMessage "Terminal process ended (PID: $_) on Core $($ProcessInfo.Core)" -Important
                     
                     # Remove from history and processed PIDs
                     if ($CoreHistory.Changes.ContainsKey($_)) {
