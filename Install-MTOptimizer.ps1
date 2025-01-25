@@ -5,7 +5,7 @@
 # across available CPU cores to prevent overload and maintain performance.
 
 # Script Version
-$ScriptVersion = "1.2.4"
+$ScriptVersion = "1.2.6"
 
 If (-NOT ([Security.Principal.WindowsPrincipal][Security.Principal.WindowsIdentity]::GetCurrent()).IsInRole([Security.Principal.WindowsBuiltInRole] "Administrator")) {   
     Start-Process powershell -Verb runAs -ArgumentList "& '$($myinvocation.mycommand.definition)'"
@@ -66,7 +66,7 @@ function Remove-OldInstallation {
 
 $optimizerScript = @'
 # Script Version
-$ScriptVersion = "1.2.4"
+$ScriptVersion = "1.2.6"
 
 # Get CPU info
 $Processor = Get-CimInstance -ClassName Win32_Processor
@@ -298,8 +298,7 @@ try {
                         Timestamp = Get-Date
                         ProcessName = $Process.ProcessName
                     }
-                    Write-LogMessage "Assigned terminal (PID: $($Process.Id)) to Core $TargetCore" -Important
-                    Write-LogMessage "Status - Core $TargetCore Usage: $([math]::Round($CoreUsage[$TargetCore], 2))%" -Important
+                    Write-LogMessage "Successfully assigned terminal (PID: $($Process.Id)) to Core $TargetCore (Usage: $([math]::Round($CoreUsage[$TargetCore], 2))%)" -Important
                 }
                 catch {
                     Write-LogMessage "Error setting affinity for PID $($Process.Id): $_" -Important

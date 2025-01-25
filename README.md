@@ -1,4 +1,4 @@
-# MT4/MT5 Core Optimizer v1.2.2
+# MT4/MT5 Core Optimizer
 
 A PowerShell-based CPU core optimization tool specifically designed for MetaTrader 4 and MetaTrader 5 trading terminals. This tool intelligently manages CPU core affinity to optimize performance and prevent terminal overload on multi-core systems.
 
