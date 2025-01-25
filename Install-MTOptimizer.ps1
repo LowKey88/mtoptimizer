@@ -5,7 +5,7 @@
 # across available CPU cores to prevent overload and maintain performance.
 
 # Script Version
-$ScriptVersion = "1.2.6"
+$ScriptVersion = "1.2.7"
 
 If (-NOT ([Security.Principal.WindowsPrincipal][Security.Principal.WindowsIdentity]::GetCurrent()).IsInRole([Security.Principal.WindowsBuiltInRole] "Administrator")) {   
     Start-Process powershell -Verb runAs -ArgumentList "& '$($myinvocation.mycommand.definition)'"
@@ -66,7 +66,7 @@ function Remove-OldInstallation {
 
 $optimizerScript = @'
 # Script Version
-$ScriptVersion = "1.2.6"
+$ScriptVersion = "1.2.7"
 
 # Get CPU info
 $Processor = Get-CimInstance -ClassName Win32_Processor
@@ -309,8 +309,15 @@ try {
         $ProcessedPIDs.Clone().Keys | ForEach-Object {
             if (-not (Get-Process -Id $_ -ErrorAction SilentlyContinue)) {
                 $ProcessInfo = $ProcessedPIDs[$_]
-                Write-LogMessage "Terminal terminated - PID: $_ from Core $($ProcessInfo.Core)" -Important
-                $ProcessedPIDs.Remove($_)
+                if ($ProcessInfo) {
+                    Write-LogMessage "Terminal terminated - PID: $_ from Core $($ProcessInfo.Core)" -Important
+                    
+                    # Remove from history and processed PIDs
+                    if ($CoreHistory.Changes.ContainsKey($_)) {
+                        $CoreHistory.Changes.Remove($_)
+                    }
+                    $ProcessedPIDs.Remove($_)
+                }
             }
         }
 
@@ -326,7 +333,13 @@ catch {
 finally {
     Write-LogMessage "Core Optimizer cleanup initiated" -Important
     Get-Process | Where-Object { $_.ProcessName -eq "terminal" } | ForEach-Object {
-        Write-LogMessage "Resetting affinity for PID: $($_.Id)" -Important
+        $ProcessInfo = $ProcessedPIDs[$_.Id]
+        if ($ProcessInfo) {
+            Write-LogMessage "Resetting affinity for terminal (PID: $($_.Id)) from Core $($ProcessInfo.Core)" -Important
+            
+            # Clean up tracking
+            $ProcessedPIDs.Remove($_.Id)
+        }
         $_.ProcessorAffinity = [IntPtr]::new(-1)
     }
     Write-LogMessage "Core Optimizer service stopped at $(Get-Date -Format 'yyyy-MM-dd HH:mm:ss')" -Important
