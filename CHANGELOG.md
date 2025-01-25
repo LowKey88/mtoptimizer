@@ -5,6 +5,14 @@ All notable changes to the MT4/MT5 Core Optimizer will be documented in this fil
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [2.0.2] - 2025-01-25
+
+### Improved
+- Increased monitoring interval to 15 seconds (from 5)
+- Added minimum 30-second interval between status logs
+- Increased CPU change threshold to 25% (from 20%)
+- Added forced update every minute regardless of changes
+
 ## [2.0.1] - 2025-01-25
 
 ### Improved

@@ -5,7 +5,7 @@
 # across available CPU cores to prevent overload and maintain performance.
 
 # Script Version
-$ScriptVersion = "2.0.1"
+$ScriptVersion = "2.0.2"
 
 # Ensure running as Administrator
 If (-NOT ([Security.Principal.WindowsPrincipal][Security.Principal.WindowsIdentity]::GetCurrent()).IsInRole([Security.Principal.WindowsBuiltInRole] "Administrator")) {   
@@ -68,7 +68,7 @@ function Remove-OldInstallation {
 
 $optimizerScript = @'
 # Script Version
-$ScriptVersion = "2.0.1"
+$ScriptVersion = "2.0.2"
 
 # State Management
 class ProcessState {
@@ -156,7 +156,7 @@ class OptimizerConfig {
         $this.CPUThreshold = $settings.CPUThreshold
         $this.HysteresisBuffer = 10
         $this.StabilityPeriod = [timespan]::FromMinutes(5)
-        $this.MonitoringInterval = [timespan]::FromSeconds(5)
+        $this.MonitoringInterval = [timespan]::FromSeconds(15)
         $this.LogPath = "C:\Windows\Logs\MTOptimizer"
         $this.MaxLogSizeMB = 10
         $this.LogRetentionCount = 5
@@ -295,26 +295,32 @@ class CoreOptimizer {
         $terminalCount = $terminals.Count
         $usageChanged = $false
         $significantChange = $false
+        $lastLogTime = if ($this.LastCoreUsages.Count -gt 0) { Get-Date } else { [DateTime]::MinValue }
+        $minLogInterval = [TimeSpan]::FromSeconds(30)
 
-        foreach ($core in $this.CoreStates.Values) {
-            if (-not $this.LastCoreUsages.ContainsKey($core.CoreID) -or 
-                [Math]::Abs($this.LastCoreUsages[$core.CoreID] - $core.CurrentUsage) -gt 20) {
-                $usageChanged = $true
-                # Check if usage crossed threshold boundaries
-                if ($core.CurrentUsage -gt $this.Config.CPUThreshold -or 
-                    ($this.LastCoreUsages.ContainsKey($core.CoreID) -and 
-                     $this.LastCoreUsages[$core.CoreID] -gt $this.Config.CPUThreshold)) {
-                    $significantChange = $true
-                    break
+        if ((Get-Date) - $lastLogTime -gt $minLogInterval) {
+            foreach ($core in $this.CoreStates.Values) {
+                if (-not $this.LastCoreUsages.ContainsKey($core.CoreID) -or 
+                    [Math]::Abs($this.LastCoreUsages[$core.CoreID] - $core.CurrentUsage) -gt 25) {
+                    $usageChanged = $true
+                    # Check if usage crossed threshold boundaries
+                    if ($core.CurrentUsage -gt $this.Config.CPUThreshold -or 
+                        ($this.LastCoreUsages.ContainsKey($core.CoreID) -and 
+                         $this.LastCoreUsages[$core.CoreID] -gt $this.Config.CPUThreshold)) {
+                        $significantChange = $true
+                        break
+                    }
                 }
             }
-        }
 
-        if ($significantChange -or $terminalCount -ne $this.LastTerminalCount) {
-            $this.WriteLog("System Status - Terminals: $terminalCount", $true)
-            foreach ($core in $this.CoreStates.Values) {
-                $this.WriteLog("Core $($core.CoreID) - Usage: $([Math]::Round($core.CurrentUsage, 2))%, Instances: $($core.AssignedProcessCount)", $significantChange)
-                $this.LastCoreUsages[$core.CoreID] = $core.CurrentUsage
+            if ($significantChange -or 
+                $terminalCount -ne $this.LastTerminalCount -or 
+                (Get-Date) - $lastLogTime -gt [TimeSpan]::FromMinutes(1)) {
+                $this.WriteLog("System Status - Terminals: $terminalCount", $true)
+                foreach ($core in $this.CoreStates.Values) {
+                    $this.WriteLog("Core $($core.CoreID) - Usage: $([Math]::Round($core.CurrentUsage, 2))%, Instances: $($core.AssignedProcessCount)", $significantChange)
+                    $this.LastCoreUsages[$core.CoreID] = $core.CurrentUsage
+                }
             }
             $this.LastTerminalCount = $terminalCount
         }
