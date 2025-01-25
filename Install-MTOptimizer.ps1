@@ -5,7 +5,7 @@
 # across available CPU cores to prevent overload and maintain performance.
 
 # Script Version
-$ScriptVersion = "1.2.3"
+$ScriptVersion = "1.2.4"
 
 If (-NOT ([Security.Principal.WindowsPrincipal][Security.Principal.WindowsIdentity]::GetCurrent()).IsInRole([Security.Principal.WindowsBuiltInRole] "Administrator")) {   
     Start-Process powershell -Verb runAs -ArgumentList "& '$($myinvocation.mycommand.definition)'"
@@ -66,7 +66,7 @@ function Remove-OldInstallation {
 
 $optimizerScript = @'
 # Script Version
-$ScriptVersion = "1.2.3"
+$ScriptVersion = "1.2.4"
 
 # Get CPU info
 $Processor = Get-CimInstance -ClassName Win32_Processor
@@ -155,6 +155,36 @@ function Get-CoreInstanceCount {
     return ($ProcessedPIDs.Values | Where-Object { $_.Core -eq $CoreID } | Measure-Object).Count
 }
 
+function Get-BestCore {
+    param (
+        [hashtable]$CoreUsage,
+        [hashtable]$ProcessedPIDs
+    )
+    
+    # Get instance counts for each core
+    $CoreInstances = @{}
+    foreach ($core in $CoreUsage.Keys) {
+        $CoreInstances[$core] = Get-CoreInstanceCount -ProcessedPIDs $ProcessedPIDs -CoreID $core
+    }
+
+    # First try: Find cores under threshold and instance limit
+    $AvailableCores = $CoreUsage.Keys | 
+        Where-Object { 
+            ($CoreUsage[$_] -lt $MaxCoreUsageThreshold) -and 
+            ($CoreInstances[$_] -lt $InstancesPerCore)
+        } | 
+        Sort-Object { $CoreInstances[$_], $CoreUsage[$_] }
+
+    if ($AvailableCores) {
+        return $AvailableCores[0]
+    }
+
+    # Second try: Find least loaded core if all are at capacity
+    return ($CoreUsage.Keys | 
+        Sort-Object { $CoreInstances[$_], $CoreUsage[$_] } | 
+        Select-Object -First 1)
+}
+
 function Write-SystemStatus {
     param (
         [hashtable]$CoreUsage,
@@ -208,32 +238,20 @@ try {
         
         foreach ($Process in $Processes) {
             if (-not $ProcessedPIDs.ContainsKey($Process.Id)) {
-                $AvailableCores = $CoreUsage.Keys | 
-                    Where-Object { 
-                        ($CoreUsage[$_] -lt $MaxCoreUsageThreshold) -and 
-                        ((Get-CoreInstanceCount -ProcessedPIDs $ProcessedPIDs -CoreID $_) -lt $InstancesPerCore)
-                    } | 
-                    Sort-Object { $CoreUsage[$_] }
-
-                $TargetCore = $AvailableCores | Select-Object -First 1
+                $TargetCore = Get-BestCore -CoreUsage $CoreUsage -ProcessedPIDs $ProcessedPIDs
                 
-                if ($null -ne $TargetCore) {
-                    try {
-                        $Process.ProcessorAffinity = $AffinityList[$TargetCore]
-                        $ProcessedPIDs[$Process.Id] = @{
-                            Core = $TargetCore
-                            Timestamp = Get-Date
-                            ProcessName = $Process.ProcessName
-                        }
-                        Write-LogMessage "Assigned terminal (PID: $($Process.Id)) to Core $TargetCore" -Important
-                        Write-LogMessage "Status - Core $TargetCore Usage: $([math]::Round($CoreUsage[$TargetCore], 2))%" -Important
+                try {
+                    $Process.ProcessorAffinity = $AffinityList[$TargetCore]
+                    $ProcessedPIDs[$Process.Id] = @{
+                        Core = $TargetCore
+                        Timestamp = Get-Date
+                        ProcessName = $Process.ProcessName
                     }
-                    catch {
-                        Write-LogMessage "Error setting affinity for PID $($Process.Id): $_" -Important
-                    }
+                    Write-LogMessage "Assigned terminal (PID: $($Process.Id)) to Core $TargetCore" -Important
+                    Write-LogMessage "Status - Core $TargetCore Usage: $([math]::Round($CoreUsage[$TargetCore], 2))%" -Important
                 }
-                else {
-                    Write-LogMessage "No available cores for terminal (PID: $($Process.Id)) - All cores at threshold or max instances per core" -Important
+                catch {
+                    Write-LogMessage "Error setting affinity for PID $($Process.Id): $_" -Important
                 }
             }
         }

@@ -5,6 +5,24 @@ All notable changes to the MT4/MT5 Core Optimizer will be documented in this fil
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [1.2.4] - 2025-01-25
+
+### Fixed
+- Critical bug in core assignment logic
+- Fixed terminals not being distributed across cores
+- Fixed terminals not getting affinity at max capacity
+- Improved core selection algorithm
+
+### Added
+- New Get-BestCore function for smarter core selection
+- Two-pass core selection strategy
+- Better load balancing across cores
+
+### Changed
+- Core selection now considers both usage and instance count
+- Always assigns affinity even at capacity
+- Improved core distribution logic
+
 ## [1.2.3] - 2025-01-25
 
 ### Added
