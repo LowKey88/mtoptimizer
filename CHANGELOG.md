@@ -23,7 +23,9 @@
 
 ### Fixed
 - Process affinity reset during uninstall
-- Log directory permissions
+- Processor affinity calculation for 2-core systems
+- Processor affinity handling for all core configurations with dynamic fallback
+- Improved core validation and assignment logic for multi-core systems
 - Registry cleanup on uninstall
 - Error handling in main loop
 

@@ -71,7 +71,6 @@ $CoreConfigs = @{
 
 # Default configuration
 $Config = @{
-    StabilityMinutes = 5
     CheckIntervalSeconds = 30
     MaxPerCore = 2        # Will be updated based on core count
     CPUThreshold = 70     # Will be updated based on core count
@@ -79,9 +78,8 @@ $Config = @{
 
 # Simple state tracking
 $State = @{
-    LastCore = -1         # Start at -1 so first increment gives core 0
-    LastAssignment = Get-Date
-    Processes = @{}
+    CurrentCore = 0       # Simple round-robin counter
+    Processes = @{}       # Track assigned processes
 }
 
 # Get total CPU cores
@@ -117,70 +115,33 @@ function Write-Log {
     }
 }
 
-# Simple error handling
-function Handle-Error {
-    param($Operation, $Error)
-    Write-Log "Error during $Operation`: $Error" -Important $true
-    
-    switch ($Operation) {
-        "Assignment" {
-            # Reset problem terminal
-            try {
-                $processId = $Error.TargetObject.Id
-                $process = Get-Process -Id $processId -ErrorAction SilentlyContinue
-                if ($process) {
-                    $process.ProcessorAffinity = [IntPtr]::new(-1)
-                    Write-Log "Reset affinity for problematic terminal: $processId"
-                }
-            } catch {
-                Write-Log "Could not reset problematic terminal: $_"
-            }
-        }
-        "CoreSelection" {
-            # Reset state
-            $State.LastCore = -1
-            $State.LastAssignment = Get-Date
-            Write-Log "Reset core selection state"
-        }
-    }
-}
-
-# Core selection
-function Get-NextCore {
-    param([int]$TotalCores)
-    
-    try {
-        # Check stability period
-        if ((Get-Date).Subtract($State.LastAssignment).TotalMinutes -lt $Config.StabilityMinutes) {
-            return $State.LastCore
-        }
-        
-        # Simple round-robin with explicit integer math
-        $nextCore = ($State.LastCore + 1) % $TotalCores
-        $State.LastCore = $nextCore
-        $State.LastAssignment = Get-Date
-        
-        Write-Log "Selected core $nextCore (total cores: $TotalCores)"
-        return $nextCore
-    } catch {
-        Handle-Error "CoreSelection" $_
-        return 0
-    }
-}
-
 # Process management
 function Set-TerminalAffinity {
-    param($Terminal, [int]$CoreId)
-    
+    param($Terminal, [int]$TotalCores)
+
     try {
-        $Terminal.ProcessorAffinity = [IntPtr](1 -shl $CoreId)
-        $State.Processes[$Terminal.Id] = @{
-            Core = $CoreId
-            Time = Get-Date
-        }
+        # Simple round-robin core selection
+        [int]$CoreId = [int]$State.CurrentCore
+        $State.CurrentCore = ([int]$State.CurrentCore + 1) % [int]$TotalCores
+        
+        # Set affinity mask for the core
+        $affinityMask = 1 -shl $CoreId
+        $Terminal.ProcessorAffinity = [IntPtr]$affinityMask
+        
+        # Track the process
+        $State.Processes[$Terminal.Id] = $CoreId
+
         Write-Log "Assigned terminal $($Terminal.Id) to core $CoreId"
     } catch {
-        Handle-Error "Assignment" $_
+        Write-Log "Error assigning terminal $($Terminal.Id): $_"
+        try {
+            # Simple fallback - use core 0
+            $Terminal.ProcessorAffinity = [IntPtr]1
+            $State.Processes[$Terminal.Id] = 0
+            Write-Log "Fallback: Set terminal $($Terminal.Id) to core 0"
+        } catch {
+            Write-Log "Failed to set fallback affinity: $_" -Important $true
+        }
     }
 }
 
@@ -192,6 +153,7 @@ try {
     $totalCores = Get-TotalCores
     Write-Log "Detected $totalCores CPU cores" -Important $true
     
+    # Set configuration based on core count
     if ($CoreConfigs.ContainsKey($totalCores)) {
         $Config.MaxPerCore = $CoreConfigs[$totalCores].MaxPerCore
         $Config.CPUThreshold = $CoreConfigs[$totalCores].CPUThreshold
@@ -201,24 +163,21 @@ try {
     }
     
     while ($true) {
-        # Get terminals
+        # Get all MT terminals
         $terminals = Get-Process | Where-Object { $_.ProcessName -eq "terminal" }
         
         foreach ($terminal in $terminals) {
-            # Check if terminal needs assignment
-            if (-not $State.Processes[$terminal.Id] -or 
-                (Get-Date).Subtract($State.Processes[$terminal.Id].Time).TotalMinutes -gt $Config.StabilityMinutes) {
-                
-                $nextCore = Get-NextCore -TotalCores $totalCores
-                Set-TerminalAffinity -Terminal $terminal -CoreId $nextCore
+            # Only assign if not already tracked
+            if (-not $State.Processes.ContainsKey($terminal.Id)) {
+                Set-TerminalAffinity -Terminal $terminal -TotalCores $totalCores
             }
         }
         
-        # Cleanup old entries
+        # Clean up terminated processes
         $processIds = @($State.Processes.Keys)
         foreach ($processId in $processIds) {
-            if (-not (Get-Process -Id $processId -ErrorAction SilentlyContinue)) {
-                $State.Processes.Remove($processId)
+            if (-not (Get-Process -Id $processId -ErrorAction SilentlyContinue) -and 
+                $State.Processes.Remove($processId)) {
                 Write-Log "Removed tracking for terminated terminal: $processId"
             }
         }
