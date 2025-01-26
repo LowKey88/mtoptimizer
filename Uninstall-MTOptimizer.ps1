@@ -23,28 +23,6 @@ Get-Process | Where-Object { $_.ProcessName -eq "mt_core_optimizer" -or $_.Path 
     }
 }
 
-# Reset terminal affinities
-Write-Host "Resetting terminal affinities..."
-Get-Process | Where-Object { $_.ProcessName -like "*terminal*" -or $_.ProcessName -like "*Terminal*" } | ForEach-Object {
-    try {
-        # Get the number of processors in the system
-        $processorCount = [System.Environment]::ProcessorCount
-        
-        # Calculate the mask that enables all processors (2^n - 1)
-        $affinityMask = [Math]::Pow(2, $processorCount) - 1
-        
-        # Convert to IntPtr
-        $affinityPtr = [IntPtr]::new($affinityMask)
-        
-        # Set the affinity
-        $_.ProcessorAffinity = $affinityPtr
-        Write-Host "Reset affinity for terminal process: $($_.ProcessName) (ID: $($_.Id))"
-    } catch {
-        Write-Host "Warning: Could not reset affinity for $($_.ProcessName) (ID: $($_.Id)): $_"
-    }
-    Start-Sleep -Milliseconds 100  # Add small delay between operations
-}
-
 # Remove auto-start registry entry
 Write-Host "Removing auto-start configuration..."
 $regPath = "HKLM:\SOFTWARE\Microsoft\Windows\CurrentVersion\Run"

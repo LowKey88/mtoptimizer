@@ -8,6 +8,10 @@
   - Unified CPU threshold to 75% for all core counts
   - Optimized for VPS Forex plans (Lite, Pro, Plus, Max)
 - Updated default configuration values to match standardized settings
+- Improved uninstaller behavior:
+  - Removed affinity reset during uninstall
+  - Preserves terminal CPU optimizations
+  - Cleaner uninstallation process
 
 ## [2.0.3] - 2025-01-26
 
