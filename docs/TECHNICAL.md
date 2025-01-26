@@ -1,193 +1,135 @@
-# MT4/MT5 Core Optimizer - Technical Improvements
+# MT4/MT5 Core Optimizer - Simple Technical Guide
 
 ## Current Issues
 
-### 1. Log File Access
-Problem: Log file is being locked, preventing read access
-Root Cause: Continuous file access without proper stream management
-Solution:
-- Implement proper file stream handling with `using` blocks
-- Add file rotation with exclusive access periods
-- Implement a separate logging queue to batch writes
-
-### 2. CPU Core Assignment Instability
+### 1. CPU Core Assignment
 Problem: Random core changes affecting terminal performance
-Root Cause: Oversensitive core selection algorithm
+Root Cause: Complex core selection logic
 Solution:
-- Add hysteresis to prevent frequent core changes
-- Implement minimum time threshold between reassignments
-- Consider historical core assignments
-- Separate instance count and CPU usage priorities
+- Use simple round-robin assignment
+- Keep terminals on same core longer
+- Basic load checking only
 
-## Architectural Improvements
+### 2. Basic Logging
+Problem: Log file access issues
+Root Cause: Complex logging system
+Solution:
+- Simple log file writing
+- Basic error reporting
+- Clear status messages
 
-### 1. Enhanced Core Selection Algorithm
+## Simple Implementation
+
+### 1. Simple Core Selection
 ```powershell
-function Get-BestCore {
-    param (
-        [hashtable]$CoreUsage,
-        [hashtable]$ProcessedPIDs,
-        [hashtable]$CoreHistory
-    )
-    
-    # First: Check historical assignment
-    if ($CoreHistory -and (Get-Date).Subtract($CoreHistory.LastChange).TotalMinutes -lt 5) {
-        return $CoreHistory.LastCore
+# Track last used core
+$script:LastCore = 0
+$script:LastAssignmentTime = Get-Date
+
+function Get-NextCore {
+    param($TotalCores)
+
+    # Check if enough time has passed
+    if ((Get-Date).Subtract($script:LastAssignmentTime).TotalMinutes -lt 5) {
+        return $script:LastCore
     }
-    
-    # Second: Find cores under threshold
-    $AvailableCores = $CoreUsage.Keys | Where-Object { 
-        $CoreUsage[$_] -lt ($MaxCoreUsageThreshold - 10) # Add hysteresis
-    }
-    
-    # Third: Check instance limits separately
-    $ValidCores = $AvailableCores | Where-Object {
-        (Get-CoreInstanceCount -ProcessedPIDs $ProcessedPIDs -CoreID $_) -lt $InstancesPerCore
-    }
-    
-    if ($ValidCores) {
-        # Sort by instance count first, then by usage
-        return ($ValidCores | 
-            Sort-Object { 
-                Get-CoreInstanceCount -ProcessedPIDs $ProcessedPIDs -CoreID $_ 
-            } | 
-            Select-Object -First 1)
-    }
-    
-    # Fallback: Least loaded core with minimum reassignment time
-    return ($CoreUsage.Keys | 
-        Where-Object { 
-            -not $CoreHistory -or 
-            (Get-Date).Subtract($CoreHistory.LastChange).TotalMinutes -ge 5 
-        } |
-        Sort-Object { $CoreUsage[$_] } | 
-        Select-Object -First 1)
+
+    # Simple round-robin
+    $script:LastCore = ($script:LastCore + 1) % $TotalCores
+    $script:LastAssignmentTime = Get-Date
+
+    return $script:LastCore
 }
 ```
 
-### 2. Improved Logging System
+### 2. Simple Process Management
 ```powershell
-# Logging queue for batched writes
-$LogQueue = New-Object System.Collections.Queue
-$LogFlushInterval = 30 # seconds
-$LastLogFlush = Get-Date
-
-function Write-LogMessage {
-    param(
-        [string]$Message,
-        [switch]$Important
-    )
-    
-    $TimeStamp = Get-Date -Format "yyyy-MM-dd HH:mm:ss"
-    $LogMessage = "$TimeStamp - $Message"
-    
-    # Add to queue instead of writing directly
-    $LogQueue.Enqueue($LogMessage)
-    
-    # Flush if important or interval reached
-    if ($Important -or (Get-Date).Subtract($LastLogFlush).TotalSeconds -ge $LogFlushInterval) {
-        Flush-LogQueue
-    }
-}
-
-function Flush-LogQueue {
-    if ($LogQueue.Count -eq 0) { return }
+function Set-TerminalAffinity {
+    param($ProcessId, $CoreId)
     
     try {
-        # Use a mutex for thread-safe file access
-        $mutex = New-Object System.Threading.Mutex($false, "MTOptimizerLogMutex")
-        $mutex.WaitOne() | Out-Null
-        
-        # Batch write all queued messages
-        $messages = @()
-        while ($LogQueue.Count -gt 0) {
-            $messages += $LogQueue.Dequeue()
-        }
-        
-        Add-Content -Path $LogFile -Value $messages
-        $LastLogFlush = Get-Date
-    }
-    finally {
-        $mutex.ReleaseMutex()
-        $mutex.Dispose()
+        $process = Get-Process -Id $ProcessId
+        $process.ProcessorAffinity = [IntPtr](1 -shl $CoreId)
+        Write-Log "Assigned terminal $ProcessId to core $CoreId"
+    } catch {
+        Write-Log "Error assigning terminal $ProcessId to core $CoreId: $_"
     }
 }
 ```
 
-### 3. Core History Tracking
+### 3. Simple Logging
 ```powershell
-$CoreHistory = @{
-    LastCore = $null
-    LastChange = [DateTime]::MinValue
-    Changes = @{}
-}
-
-function Update-CoreHistory {
-    param(
-        [int]$CoreID,
-        [int]$ProcessID
-    )
+function Write-Log {
+    param($Message)
     
-    $CoreHistory.LastCore = $CoreID
-    $CoreHistory.LastChange = Get-Date
+    $logFile = "C:\Windows\Logs\MTOptimizer\optimizer.log"
+    $timestamp = Get-Date -Format "yyyy-MM-dd HH:mm:ss"
     
-    if (-not $CoreHistory.Changes.ContainsKey($ProcessID)) {
-        $CoreHistory.Changes[$ProcessID] = @()
-    }
+    # Simple log write
+    "$timestamp - $Message" | Add-Content $logFile
     
-    $CoreHistory.Changes[$ProcessID] += @{
-        Time = Get-Date
-        Core = $CoreID
-    }
-    
-    # Cleanup old history
-    $CoreHistory.Changes = $CoreHistory.Changes.Clone()
-    foreach ($pid in $CoreHistory.Changes.Keys) {
-        $CoreHistory.Changes[$pid] = $CoreHistory.Changes[$pid] |
-            Where-Object { 
-                (Get-Date).Subtract($_.Time).TotalHours -lt 1 
-            }
+    # Show important messages
+    if ($Message -match "Error|Warning|Success") {
+        Write-Host "$timestamp - $Message"
     }
 }
 ```
 
-## Implementation Steps
+### 4. Simple Installation
+```powershell
+function Install-Optimizer {
+    # Basic checks
+    if (-not ([Security.Principal.WindowsPrincipal][Security.Principal.WindowsIdentity]::GetCurrent()).IsInRole([Security.Principal.WindowsBuiltInRole]"Administrator")) {
+        Write-Host "Error: Administrator rights required"
+        return
+    }
+    
+    # Create directories
+    New-Item -ItemType Directory -Force -Path "C:\Program Files\MTOptimizer"
+    New-Item -ItemType Directory -Force -Path "C:\Windows\Logs\MTOptimizer"
+    
+    # Set auto-start
+    $regPath = "HKLM:\SOFTWARE\Microsoft\Windows\CurrentVersion\Run"
+    Set-ItemProperty -Path $regPath -Name "MTOptimizer" -Value "powershell -WindowStyle Hidden -File `"C:\Program Files\MTOptimizer\optimizer.ps1`""
+    
+    Write-Host "Installation complete"
+}
+```
 
-1. Update the core selection logic to include hysteresis and history
-2. Implement the new logging system with queued writes
-3. Add core history tracking to prevent frequent reassignments
-4. Update the main loop to use these new components
+## Main Loop
+```powershell
+# Simple monitoring loop
+while ($true) {
+    # Get all MT4/MT5 terminals
+    $terminals = Get-Process | Where-Object { $_.ProcessName -eq "terminal" }
+    $totalCores = (Get-CimInstance Win32_Processor).NumberOfLogicalProcessors
+    
+    foreach ($terminal in $terminals) {
+        # Check if terminal needs core assignment
+        if (-not $terminal.ProcessorAffinity) {
+            $nextCore = Get-NextCore -TotalCores $totalCores
+            Set-TerminalAffinity -ProcessId $terminal.Id -CoreId $nextCore
+        }
+    }
+    
+    # Simple sleep between checks
+    Start-Sleep -Seconds 30
+}
+```
 
-## Expected Benefits
+## Testing Guide
 
-1. More stable core assignments
-   - Minimum 5-minute threshold between changes
-   - Historical assignment consideration
-   - Hysteresis in CPU threshold checks
+1. Basic Tests
+   - Start/stop optimizer
+   - Launch MT4/MT5 terminals
+   - Check core assignments
 
-2. Improved logging reliability
-   - No file locking issues
-   - Batched writes for better performance
-   - Thread-safe file access
+2. Error Cases
+   - Invalid core numbers
+   - Process access denied
+   - Log write failures
 
-3. Better resource utilization
-   - More intelligent core selection
-   - Reduced overhead from frequent changes
-   - Better load distribution
-
-## Monitoring and Maintenance
-
-1. Core stability metrics
-   - Track frequency of core changes
-   - Monitor duration of assignments
-   - Log load distribution patterns
-
-2. Performance indicators
-   - CPU usage per core
-   - Number of terminals per core
-   - Core change frequency
-
-3. Log file management
-   - Automatic rotation
-   - Size-based cleanup
-   - Access monitoring
+3. Stability
+   - Run multiple terminals
+   - Check assignment stability
+   - Monitor logs

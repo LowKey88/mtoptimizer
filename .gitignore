@@ -1,5 +1,6 @@
 # Ignore cline documentation
 cline_docs/
+.clinerules
 
 # Windows image file caches
 Thumbs.db

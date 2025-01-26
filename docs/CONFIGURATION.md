@@ -1,143 +1,116 @@
 # Configuration Guide
 
-This document details the configuration options and customization possibilities for the MT4/MT5 Core Optimizer.
+This document details the simple configuration options for the MT4/MT5 Core Optimizer.
 
-## Default Configuration
+## Core Settings
 
-The optimizer uses a predefined configuration based on CPU core count:
+The optimizer uses a basic configuration based on CPU core count:
 
 ```powershell
 $Config = @{
-   1 = @{ MaxPerCore = 4; Threshold = 80 }
-   2 = @{ MaxPerCore = 3; Threshold = 75 }
-   4 = @{ MaxPerCore = 2; Threshold = 70 }
-   6 = @{ MaxPerCore = 2; Threshold = 65 }
-   8 = @{ MaxPerCore = 2; Threshold = 60 }
+    2 = @{ MaxPerCore = 3; Threshold = 75 }
+    4 = @{ MaxPerCore = 2; Threshold = 70 }
+    6 = @{ MaxPerCore = 2; Threshold = 65 }
+    8 = @{ MaxPerCore = 2; Threshold = 60 }
 }
 ```
 
-### Configuration Parameters
+### Settings Explained
 
 #### MaxPerCore
-- Defines maximum MT4/MT5 instances allowed per CPU core
-- Higher values allow more terminals per core
-- Lower values provide better performance per terminal
-- Default ranges from 2-4 based on core count
+- Maximum MT4/MT5 terminals per CPU core
+- Higher values = more terminals, lower performance
+- Lower values = fewer terminals, better performance
+- Default: 2-3 terminals per core
 
 #### Threshold
 - Maximum CPU usage percentage per core
-- New terminals assigned only when core usage below threshold
-- Higher thresholds allow more intensive usage
-- Lower thresholds ensure smoother operation
-- Default ranges from 60-80% based on core count
+- Higher values allow more intensive usage
+- Lower values ensure smoother operation
+- Default: 60-75% based on cores
 
-## Custom Configuration
+## Basic Configuration
 
-To modify the default configuration:
+To modify settings:
 
-1. Stop the optimizer service
-2. Navigate to `C:\Program Files\MTOptimizer\system\`
-3. Edit `mt_core_optimizer.ps1`
-4. Locate the `$Config` hashtable
-5. Modify values as needed
-6. Save and restart the service
+1. Stop the optimizer
+2. Edit `C:\Program Files\MTOptimizer\optimizer.ps1`
+3. Change values in `$Config`
+4. Save and restart
 
-### Example Custom Configurations
+## Example Configurations
 
-#### High-Performance Configuration
+### Performance Focus
 ```powershell
 $Config = @{
-   1 = @{ MaxPerCore = 3; Threshold = 70 }
-   2 = @{ MaxPerCore = 2; Threshold = 65 }
-   4 = @{ MaxPerCore = 1; Threshold = 60 }
-   6 = @{ MaxPerCore = 1; Threshold = 55 }
-   8 = @{ MaxPerCore = 1; Threshold = 50 }
+    2 = @{ MaxPerCore = 2; Threshold = 65 }
+    4 = @{ MaxPerCore = 1; Threshold = 60 }
+    6 = @{ MaxPerCore = 1; Threshold = 55 }
+    8 = @{ MaxPerCore = 1; Threshold = 50 }
 }
 ```
-- Prioritizes performance per terminal
-- Reduces instances per core
-- Lower thresholds for smoother operation
+- Better performance per terminal
+- Lower CPU usage
+- Smoother operation
 
-#### High-Density Configuration
+### Capacity Focus
 ```powershell
 $Config = @{
-   1 = @{ MaxPerCore = 5; Threshold = 85 }
-   2 = @{ MaxPerCore = 4; Threshold = 80 }
-   4 = @{ MaxPerCore = 3; Threshold = 75 }
-   6 = @{ MaxPerCore = 3; Threshold = 70 }
-   8 = @{ MaxPerCore = 3; Threshold = 65 }
+    2 = @{ MaxPerCore = 4; Threshold = 80 }
+    4 = @{ MaxPerCore = 3; Threshold = 75 }
+    6 = @{ MaxPerCore = 3; Threshold = 70 }
+    8 = @{ MaxPerCore = 3; Threshold = 65 }
 }
 ```
-- Maximizes number of terminals
-- Higher instances per core
-- Higher thresholds for maximum utilization
+- More terminals per core
+- Higher CPU usage allowed
+- Maximum capacity
 
-## Advanced Settings
+## Basic Settings
 
-### Polling Interval
+### Check Interval
 ```powershell
-Start-Sleep -Seconds 5  # Default polling interval
+Start-Sleep -Seconds 30  # How often to check terminals
 ```
-- Controls how often CPU usage is checked
-- Lower values provide more responsive allocation
-- Higher values reduce system overhead
-- Default: 5 seconds
+- Default: 30 seconds
+- Lower = more responsive
+- Higher = less overhead
 
-### Process Detection
-```powershell
-$Processes = Get-Process | Where-Object { $_.ProcessName -match "^terminal$|^mt4$|^mt5$" }
-```
-- Regex pattern determines which processes are managed
-- Can be modified to include/exclude specific terminal versions
-- Default matches standard MT4/MT5 process names
-
-### Logging Configuration
+### Log Settings
 ```powershell
 $LogPath = "C:\Windows\Logs\MTOptimizer"
-$LogFile = Join-Path $LogPath "core_optimizer.log"
+$LogFile = "optimizer.log"
 ```
-- Customize log location and filename
-- Modify logging detail level
-- Configure log rotation/cleanup
+- Simple log file location
+- Basic error logging
+- Status messages
 
-## Installation Options
-
-### Registry Configuration
+### Installation
 ```powershell
-$regPath = "HKLM:\SOFTWARE\Microsoft\Windows\CurrentVersion\Run"
+$InstallPath = "C:\Program Files\MTOptimizer"
+$AutoStart = $true
 ```
-- Controls auto-start behavior
-- Can be modified for different startup methods
-- Supports custom startup parameters
-
-### Installation Paths
-```powershell
-$optimizerPath = "C:\Program Files\MTOptimizer"
-$hiddenPath = "$optimizerPath\system"
-```
-- Customize installation location
-- Modify system integration
-- Configure file protection settings
+- Standard install location
+- Auto-start with Windows
 
 ## Best Practices
 
-### Performance Optimization
-1. Start with default configuration
-2. Monitor system performance
-3. Adjust thresholds based on CPU usage patterns
-4. Fine-tune instances per core based on trading needs
-5. Consider system resources used by other applications
+1. Start Simple
+   - Use default configuration
+   - Monitor performance
+   - Adjust if needed
 
-### Security Considerations
-1. Maintain administrator privileges
-2. Protect configuration files
-3. Monitor log files for issues
-4. Regular backup of custom configurations
-5. Document any configuration changes
+2. Performance Tips
+   - Start with fewer terminals
+   - Increase gradually
+   - Watch CPU usage
 
-### Troubleshooting
-1. Check log files for errors
-2. Verify process detection
-3. Monitor core allocation patterns
-4. Test different configurations
-5. Reset to defaults if issues occur
+3. Maintenance
+   - Check logs regularly
+   - Clear old logs
+   - Monitor stability
+
+4. Troubleshooting
+   - Check error messages
+   - Verify settings
+   - Reset to defaults if needed
