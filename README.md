@@ -69,15 +69,19 @@ The optimizer:
 4. Maintains assignments for 5 minutes for stability
 5. Uses round-robin assignment for new terminals
 
-### Core Assignment Rules
+## Core Configuration
 
-| Cores | Max Terminals Per Core | CPU Threshold |
-|-------|----------------------|---------------|
-| 2     | 3                   | 75%           |
-| 4     | 2                   | 70%           |
-| 6     | 2                   | 65%           |
-| 8     | 2                   | 60%           |
+The optimizer automatically adjusts its settings based on your CPU:
 
+- 2 cores: 3 terminals per core, 75% threshold
+- 4 cores: 2 terminals per core, 70% threshold
+- 6 cores: 2 terminals per core, 65% threshold
+- 8 cores: 2 terminals per core, 60% threshold
+
+For detailed configuration information, see:
+- [Core Configuration Guide](docs/CORE_CONFIG.md)
+
+The settings are automatically detected and applied at startup.
 ## Monitoring
 
 The optimizer logs its activity to:
