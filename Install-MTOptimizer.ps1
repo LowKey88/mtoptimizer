@@ -18,42 +18,11 @@ $optimizerPath = "C:\Program Files\MTOptimizer"
 $logPath = "C:\Windows\Logs\MTOptimizer"
 $scriptPath = "$optimizerPath\mt_core_optimizer.ps1"
 
-# Clean up old installation
-function Remove-OldInstallation {
-    Write-Host "Checking for existing installation..."
-    
-    # Stop existing processes
-    Get-Process | Where-Object { $_.ProcessName -eq "mt_core_optimizer" -or $_.Path -like "*MTOptimizer*" } | ForEach-Object {
-        try {
-            Stop-Process -Id $_.Id -Force
-            Write-Host "Stopped process: $($_.Id)"
-        } catch {
-            Write-Host "Warning: Could not stop process $($_.Id): $_"
-        }
-    }
-
-    # Reset terminal affinities
-    Get-Process | Where-Object { $_.ProcessName -eq "terminal" } | ForEach-Object {
-        try {
-            $_.ProcessorAffinity = [IntPtr]::new(-1)
-            Write-Host "Reset affinity for terminal: $($_.Id)"
-        } catch {
-            Write-Host "Warning: Could not reset affinity for $($_.Id): $_"
-        }
-    }
-
-    # Remove old files
-    if (Test-Path $optimizerPath) {
-        Write-Host "Removing old installation files..."
-        Remove-Item $optimizerPath -Recurse -Force
-    }
-
-    # Remove auto-start registry entry
-    $regPath = "HKLM:\SOFTWARE\Microsoft\Windows\CurrentVersion\Run"
-    if (Get-ItemProperty -Path $regPath -Name "MTSystemOptimizer" -ErrorAction SilentlyContinue) {
-        Write-Host "Removing old auto-start configuration..."
-        Remove-ItemProperty -Path $regPath -Name "MTSystemOptimizer"
-    }
+# Check for existing installation
+if (Test-Path $optimizerPath) {
+    Write-Host "Error: Previous installation detected."
+    Write-Host "Please run Uninstall-MTOptimizer.ps1 first if you want to remove the existing installation."
+    Break
 }
 
 # Core optimizer script
@@ -241,9 +210,6 @@ try {
 try {
     Write-Host "MT4/MT5 Core Optimizer v$ScriptVersion Installation"
     Write-Host "----------------------------------------"
-
-    # Clean up old installation
-    Remove-OldInstallation
     
     # Create directories
     Write-Host "Creating directories..."
