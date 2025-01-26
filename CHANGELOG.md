@@ -19,6 +19,11 @@
   - Process and service status checks
   - Installation cleanup verification
   - Detailed status reporting
+- Enhanced service management:
+   - Added Stop-MTOptimizer.ps1 for reliable service stopping
+   - Added Start-MTOptimizer.ps1 for safe service starting
+   - Implemented daily log cleanup at midnight
+   - Added log cleanup on service startup
 
 ## [2.0.3] - 2025-01-26
 

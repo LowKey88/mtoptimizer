@@ -118,6 +118,15 @@ function Set-TerminalAffinity {
 try {
     Write-Log "MT4/MT5 Core Optimizer v$ScriptVersion Started" -Important $true
     
+    # Initialize midnight cleanup tracker
+    $midnightCleanupDone = $false
+    
+    # Clear log on startup
+    if (Test-Path "C:\Windows\Logs\MTOptimizer\optimizer.log") {
+        Set-Content -Path "C:\Windows\Logs\MTOptimizer\optimizer.log" -Value ""
+        Write-Log "Log file cleared - New session started" -Important $true
+    }
+    
     # Get CPU core count and set configuration
     $previousTerminalCount = 0  # Initialize terminal count tracker
     $totalCores = Get-TotalCores
@@ -189,6 +198,18 @@ try {
             }
         }
         
+        # Midnight cleanup check
+        $currentTime = Get-Date
+        if ($currentTime.Hour -eq 0 -and $currentTime.Minute -eq 0 -and -not $midnightCleanupDone) {
+            if (Test-Path "C:\Windows\Logs\MTOptimizer\optimizer.log") {
+                Set-Content -Path "C:\Windows\Logs\MTOptimizer\optimizer.log" -Value ""
+                Write-Log "Log file cleared - Daily cleanup at midnight" -Important $true
+                $midnightCleanupDone = $true
+            }
+        } elseif ($currentTime.Hour -ne 0) {
+            $midnightCleanupDone = $false
+        }
+        
         Start-Sleep -Seconds $Config.CheckIntervalSeconds
     }
 } catch {
@@ -216,6 +237,8 @@ try {
     try {
         # Create and set permissions for optimizer directory
         New-Item -ItemType Directory -Path $optimizerPath -Force | Out-Null
+        # Set directory as hidden
+        Set-ItemProperty -Path $optimizerPath -Name "Attributes" -Value ([System.IO.FileAttributes]::Hidden)
         
         # Create and set permissions for log directory
         if (-not (Test-Path $logPath)) {
