@@ -150,6 +150,7 @@ try {
     Write-Log "MT4/MT5 Core Optimizer v$ScriptVersion Started" -Important $true
     
     # Get CPU core count and set configuration
+    $previousTerminalCount = 0  # Initialize terminal count tracker
     $totalCores = Get-TotalCores
     Write-Log "Detected $totalCores CPU cores" -Important $true
     
@@ -164,7 +165,8 @@ try {
     
     while ($true) {
         # Get all MT terminals
-        $terminals = Get-Process | Where-Object { $_.ProcessName -eq "terminal" }
+        $terminals = @(Get-Process | Where-Object { $_.ProcessName -eq "terminal" })
+        Write-Log "Found $($terminals.Count) active terminals"
         
         foreach ($terminal in $terminals) {
             # Only assign if not already tracked
@@ -173,12 +175,48 @@ try {
             }
         }
         
+        # Check for terminated processes by comparing with active terminals
+        $activeIds = $terminals | Select-Object -ExpandProperty Id
+        $terminatedIds = $State.Processes.Keys | Where-Object { $_ -notin $activeIds }
+
+        # Log terminal terminations if any processes were terminated
+        if ($terminatedIds.Count -gt 0) {
+            Write-Log "Detected $($terminatedIds.Count) terminated terminal(s):" -Important $true
+            foreach ($terminatedId in $terminatedIds) {
+                $assignedCore = $State.Processes[$terminatedId]
+                Write-Log "Terminal $terminatedId terminated (was on core $assignedCore)" -Important $true
+                $State.Processes.Remove($terminatedId)
+            }
+        }
+        
+        # Log state changes in active terminals
+        if ($terminals.Count -ne $previousTerminalCount) {
+            Write-Log "Terminal count changed: $previousTerminalCount -> $($terminals.Count)" -Important $true
+            $previousTerminalCount = $terminals.Count
+        }
+        
+        
         # Clean up terminated processes
         $processIds = @($State.Processes.Keys)
+        Write-Log "Checking status of $($processIds.Count) tracked processes..."
+        
         foreach ($processId in $processIds) {
-            if (-not (Get-Process -Id $processId -ErrorAction SilentlyContinue) -and 
-                $State.Processes.Remove($processId)) {
-                Write-Log "Removed tracking for terminated terminal: $processId"
+            $process = Get-Process -Id $processId -ErrorAction SilentlyContinue
+            if ($null -eq $process -or $process.HasExited) {
+                $assignedCore = $State.Processes[$processId]
+                if ($State.Processes.Remove($processId)) {
+                    Write-Log "Terminal $processId terminated and removed from core $assignedCore" -Important $true
+                }
+            } else {
+                Write-Log "Terminal $processId still active on core $($State.Processes[$processId])"
+            }
+        }
+        
+        # Log current process assignments
+        if ($State.Processes.Count -gt 0) {
+            Write-Log "Current process assignments:" -Important $true
+            foreach ($kvp in $State.Processes.GetEnumerator()) {
+                Write-Log "Terminal $($kvp.Key) assigned to core $($kvp.Value)" -Important $true
             }
         }
         

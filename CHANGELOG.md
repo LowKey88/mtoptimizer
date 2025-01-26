@@ -6,14 +6,22 @@
 - Simplified core assignment to use round-robin approach
 - Reduced complexity in process management
 - Improved error handling and recovery
-- Streamlined logging system
+- Enhanced logging system with detailed process tracking
 - Updated installation and uninstallation process
+- Improved terminal lifecycle monitoring
+- Enhanced process cleanup mechanism
 
 ### Added
 - Basic state tracking for process assignments
 - Clear error messages in logs
 - Simple CPU threshold monitoring
 - Proper log directory permissions
+- Explicit terminal termination logging
+- Terminal count change tracking
+- Detailed core assignment status reporting
+- Process-to-core mapping logs
+- Active process enumeration
+- Terminal lifecycle event tracking
 
 ### Removed
 - Complex CoreOptimizer class structure
@@ -28,6 +36,7 @@
 - Improved core validation and assignment logic for multi-core systems
 - Registry cleanup on uninstall
 - Error handling in main loop
+- Process termination detection and cleanup
 
 ## [2.0.2] - Previous Version
 
