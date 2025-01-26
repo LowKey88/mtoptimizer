@@ -79,9 +79,21 @@ $Config = @{
 
 # Simple state tracking
 $State = @{
-    LastCore = 0
+    LastCore = -1         # Start at -1 so first increment gives core 0
     LastAssignment = Get-Date
     Processes = @{}
+}
+
+# Get total CPU cores
+function Get-TotalCores {
+    try {
+        $processor = Get-CimInstance -ClassName Win32_Processor
+        $cores = ($processor | Measure-Object -Property NumberOfLogicalProcessors -Sum).Sum
+        return [int]$cores
+    } catch {
+        Write-Log "Error getting core count: $_" -Important $true
+        return 2  # Safe fallback
+    }
 }
 
 # Basic logging
@@ -126,7 +138,7 @@ function Handle-Error {
         }
         "CoreSelection" {
             # Reset state
-            $State.LastCore = 0
+            $State.LastCore = -1
             $State.LastAssignment = Get-Date
             Write-Log "Reset core selection state"
         }
@@ -135,7 +147,7 @@ function Handle-Error {
 
 # Core selection
 function Get-NextCore {
-    param($TotalCores)
+    param([int]$TotalCores)
     
     try {
         # Check stability period
@@ -143,11 +155,13 @@ function Get-NextCore {
             return $State.LastCore
         }
         
-        # Simple round-robin
-        $State.LastCore = ($State.LastCore + 1) % $TotalCores
+        # Simple round-robin with explicit integer math
+        $nextCore = ($State.LastCore + 1) % $TotalCores
+        $State.LastCore = $nextCore
         $State.LastAssignment = Get-Date
         
-        return $State.LastCore
+        Write-Log "Selected core $nextCore (total cores: $TotalCores)"
+        return $nextCore
     } catch {
         Handle-Error "CoreSelection" $_
         return 0
@@ -156,7 +170,7 @@ function Get-NextCore {
 
 # Process management
 function Set-TerminalAffinity {
-    param($Terminal, $CoreId)
+    param($Terminal, [int]$CoreId)
     
     try {
         $Terminal.ProcessorAffinity = [IntPtr](1 -shl $CoreId)
@@ -175,7 +189,9 @@ try {
     Write-Log "MT4/MT5 Core Optimizer v$ScriptVersion Started" -Important $true
     
     # Get CPU core count and set configuration
-    $totalCores = (Get-CimInstance Win32_Processor).NumberOfLogicalProcessors
+    $totalCores = Get-TotalCores
+    Write-Log "Detected $totalCores CPU cores" -Important $true
+    
     if ($CoreConfigs.ContainsKey($totalCores)) {
         $Config.MaxPerCore = $CoreConfigs[$totalCores].MaxPerCore
         $Config.CPUThreshold = $CoreConfigs[$totalCores].CPUThreshold
@@ -199,7 +215,7 @@ try {
         }
         
         # Cleanup old entries
-        $processIds = @($State.Processes.Keys)  # Create array copy of keys
+        $processIds = @($State.Processes.Keys)
         foreach ($processId in $processIds) {
             if (-not (Get-Process -Id $processId -ErrorAction SilentlyContinue)) {
                 $State.Processes.Remove($processId)
@@ -264,7 +280,10 @@ try {
 
     Write-Host "----------------------------------------"
     Write-Host "MT4/MT5 Core Optimizer v$ScriptVersion installed successfully"
-    Write-Host "CPU Cores: $((Get-CimInstance Win32_Processor).NumberOfLogicalProcessors)"
+    
+    # Show detected cores
+    $cores = (Get-CimInstance Win32_Processor | Measure-Object -Property NumberOfLogicalProcessors -Sum).Sum
+    Write-Host "Detected CPU Cores: $cores"
 } catch {
     Write-Host "Installation failed: $_"
     
