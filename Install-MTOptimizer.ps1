@@ -199,10 +199,11 @@ try {
         }
         
         # Cleanup old entries
-        $State.Processes.Keys.Clone() | ForEach-Object {
-            if (-not (Get-Process -Id $_ -ErrorAction SilentlyContinue)) {
-                $State.Processes.Remove($_)
-                Write-Log "Removed tracking for terminated terminal: $_"
+        $processIds = @($State.Processes.Keys)  # Create array copy of keys
+        foreach ($processId in $processIds) {
+            if (-not (Get-Process -Id $processId -ErrorAction SilentlyContinue)) {
+                $State.Processes.Remove($processId)
+                Write-Log "Removed tracking for terminated terminal: $processId"
             }
         }
         
