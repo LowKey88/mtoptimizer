@@ -11,6 +11,8 @@ A simple PowerShell script to optimize CPU core usage for MetaTrader 4 and 5 ter
 - Clear error handling
 - Standardized resource allocation
 - VPS plan optimization
+- Automatic log maintenance
+- Service management scripts
 
 ## Requirements
 
@@ -49,6 +51,8 @@ Optimized for the following VPS Forex plans:
 1. Create a new folder on your Desktop named "MTOptimizer"
 2. Download these files into the folder:
    - Install-MTOptimizer.ps1
+   - Start-MTOptimizer.ps1
+   - Stop-MTOptimizer.ps1
    - Uninstall-MTOptimizer.ps1
 
 ### Step 2: Prepare Installation
@@ -85,6 +89,20 @@ The installation will:
 - Install the optimizer service
 - Start core optimization automatically
 - Configure auto-start on Windows startup
+
+## Service Management
+
+The optimizer includes scripts for managing the service:
+
+### Start-MTOptimizer.ps1
+- Starts the optimizer service
+- Checks for existing instances
+- Verifies proper installation
+
+### Stop-MTOptimizer.ps1
+- Safely stops the optimizer service
+- Cleans up running processes
+- Quick and reliable shutdown
 
 ## How It Works
 
@@ -125,6 +143,11 @@ Important messages include:
 - Terminal count changes
 - Core allocation status
 - Process termination events
+
+Log Maintenance:
+- Logs are automatically cleared at midnight
+- Fresh log file on service startup
+- Prevents excessive disk usage
 
 ## Detailed Uninstallation Guide
 
