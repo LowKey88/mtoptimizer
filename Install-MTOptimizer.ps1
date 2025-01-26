@@ -60,11 +60,21 @@ function Remove-OldInstallation {
 $optimizerScript = @'
 # Script Version and Configuration
 $ScriptVersion = "2.0.3"
+
+# Core-based configuration matrix
+$CoreConfigs = @{
+    2 = @{ MaxPerCore = 3; CPUThreshold = 75 }
+    4 = @{ MaxPerCore = 2; CPUThreshold = 70 }
+    6 = @{ MaxPerCore = 2; CPUThreshold = 65 }
+    8 = @{ MaxPerCore = 2; CPUThreshold = 60 }
+}
+
+# Default configuration
 $Config = @{
-    MaxPerCore = 2
     StabilityMinutes = 5
     CheckIntervalSeconds = 30
-    CPUThreshold = 75
+    MaxPerCore = 2        # Will be updated based on core count
+    CPUThreshold = 70     # Will be updated based on core count
 }
 
 # Simple state tracking
@@ -164,10 +174,19 @@ function Set-TerminalAffinity {
 try {
     Write-Log "MT4/MT5 Core Optimizer v$ScriptVersion Started" -Important $true
     
+    # Get CPU core count and set configuration
+    $totalCores = (Get-CimInstance Win32_Processor).NumberOfLogicalProcessors
+    if ($CoreConfigs.ContainsKey($totalCores)) {
+        $Config.MaxPerCore = $CoreConfigs[$totalCores].MaxPerCore
+        $Config.CPUThreshold = $CoreConfigs[$totalCores].CPUThreshold
+        Write-Log "Using configuration for $totalCores cores: Max $($Config.MaxPerCore) terminals per core, $($Config.CPUThreshold)% threshold" -Important $true
+    } else {
+        Write-Log "Using default configuration for $totalCores cores" -Important $true
+    }
+    
     while ($true) {
-        # Get terminals and core count
+        # Get terminals
         $terminals = Get-Process | Where-Object { $_.ProcessName -eq "terminal" }
-        $totalCores = (Get-CimInstance Win32_Processor).NumberOfLogicalProcessors
         
         foreach ($terminal in $terminals) {
             # Check if terminal needs assignment
