@@ -9,6 +9,8 @@ A simple PowerShell script to optimize CPU core usage for MetaTrader 4 and 5 ter
 - Stable terminal-to-core allocation
 - Basic load monitoring
 - Clear error handling
+- Standardized resource allocation
+- VPS plan optimization
 
 ## Requirements
 
@@ -16,6 +18,30 @@ A simple PowerShell script to optimize CPU core usage for MetaTrader 4 and 5 ter
 - Administrator rights
 - PowerShell
 - MetaTrader 4 or 5 terminal
+
+## VPS Plan Support
+
+Optimized for the following VPS Forex plans:
+
+- VPS Forex Lite (2 cores):
+  - 6 MT4/MT5 terminals supported
+  - 3 terminals per core
+  - 75% CPU threshold
+
+- VPS Forex Pro (4 cores):
+  - 12 MT4/MT5 terminals supported
+  - 3 terminals per core
+  - 75% CPU threshold
+
+- VPS Forex Plus (6 cores):
+  - 18 MT4/MT5 terminals supported
+  - 3 terminals per core
+  - 75% CPU threshold
+
+- VPS Forex Max (8 cores):
+  - 18 MT4/MT5 terminals supported
+  - 3 terminals per core
+  - 75% CPU threshold
 
 ## Detailed Installation Guide
 
@@ -66,22 +92,25 @@ The optimizer:
 1. Detects available CPU cores
 2. Monitors MT4/MT5 terminals
 3. Assigns each terminal to a specific core
-4. Maintains assignments for 5 minutes for stability
+4. Maintains assignments for stability
 5. Uses round-robin assignment for new terminals
+6. Enforces VPS plan terminal limits
 
 ## Core Configuration
 
-The optimizer automatically adjusts its settings based on your CPU:
+The optimizer uses standardized settings across all VPS plans:
 
-- 2 cores: 3 terminals per core, 75% threshold
-- 4 cores: 2 terminals per core, 70% threshold
-- 6 cores: 2 terminals per core, 65% threshold
-- 8 cores: 2 terminals per core, 60% threshold
+- Standard allocation: 3 terminals per core
+- Unified CPU threshold: 75% for all configurations
+- Consistent performance across all plans
+- Automatic terminal limit enforcement
+- 25% CPU headroom for system tasks
 
 For detailed configuration information, see:
 - [Core Configuration Guide](docs/CORE_CONFIG.md)
 
 The settings are automatically detected and applied at startup.
+
 ## Monitoring
 
 The optimizer logs its activity to:
@@ -93,6 +122,9 @@ Important messages include:
 - Terminal assignments
 - Error conditions
 - Status updates
+- Terminal count changes
+- Core allocation status
+- Process termination events
 
 ## Detailed Uninstallation Guide
 
@@ -118,13 +150,6 @@ The uninstaller will:
 - Reset terminal CPU assignments
 - Remove all files and settings
 - Clean registry entries
-
-## What Gets Installed
-The script will:
-- Stop the optimizer
-- Reset all terminal affinities
-- Remove all files and settings
-- Clean up registry entries
 
 ## Troubleshooting
 
@@ -154,6 +179,7 @@ The script will:
 2. "High CPU usage":
    - Check number of terminals per core
    - Look for core assignments in log
+   - Verify within VPS plan limits
    - Restart the optimizer if needed
 
 3. "Optimizer not starting":

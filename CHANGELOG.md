@@ -1,5 +1,14 @@
 # Changelog
 
+## [2.0.4] - 2025-01-26
+
+### Changed
+- Standardized resource allocation across all VPS plans:
+  - Set consistent 3 terminals per core for all configurations
+  - Unified CPU threshold to 75% for all core counts
+  - Optimized for VPS Forex plans (Lite, Pro, Plus, Max)
+- Updated default configuration values to match standardized settings
+
 ## [2.0.3] - 2025-01-26
 
 ### Changed

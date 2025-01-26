@@ -1,57 +1,61 @@
 # Core-Based Configuration Guide
 
-## CPU Core Configuration Matrix
+## VPS Plan Optimization
 
-The MT4/MT5 Core Optimizer automatically adjusts its settings based on the number of CPU cores in your system:
+The MT4/MT5 Core Optimizer is specifically optimized for VPS Forex plans with standardized resource allocation:
 
-| CPU Cores | Max Terminals Per Core | CPU Threshold |
-|-----------|----------------------|---------------|
-| 2 cores   | 3 terminals         | 75%           |
-| 4 cores   | 2 terminals         | 70%           |
-| 6 cores   | 2 terminals         | 65%           |
-| 8 cores   | 2 terminals         | 60%           |
+| VPS Plan     | CPU Cores | Total Terminals | Terminals Per Core | CPU Threshold |
+|--------------|-----------|-----------------|-------------------|---------------|
+| Forex Lite   | 2 cores   | 6 terminals     | 3 terminals      | 75%           |
+| Forex Pro    | 4 cores   | 12 terminals    | 3 terminals      | 75%           |
+| Forex Plus   | 6 cores   | 18 terminals    | 3 terminals      | 75%           |
+| Forex Max    | 8 cores   | 18 terminals    | 3 terminals      | 75%           |
 
 ### How It Works
 
 1. On startup, the optimizer:
    - Detects your CPU's core count
-   - Applies the matching configuration
-   - Logs the selected settings
+   - Applies the standardized configuration
+   - Enforces VPS plan terminal limits
+   - Logs the active settings
 
-2. For example, on an 8-core CPU:
-   - Maximum 2 terminals per core
-   - CPU usage threshold of 60%
-   - Total capacity: 16 terminals (8 cores × 2 terminals)
+2. For example, on a VPS Forex Pro (4 cores):
+   - 3 terminals per core
+   - CPU usage threshold of 75%
+   - Total capacity: 12 terminals (4 cores × 3 terminals)
 
 ### Configuration Logic
 
 ```powershell
 # Core configuration matrix
 $CoreConfigs = @{
-    2 = @{ MaxPerCore = 3; CPUThreshold = 75 }
-    4 = @{ MaxPerCore = 2; CPUThreshold = 70 }
-    6 = @{ MaxPerCore = 2; CPUThreshold = 65 }
-    8 = @{ MaxPerCore = 2; CPUThreshold = 60 }
+    2 = @{ MaxPerCore = 3; CPUThreshold = 75 }  # VPS Forex Lite
+    4 = @{ MaxPerCore = 3; CPUThreshold = 75 }  # VPS Forex Pro
+    6 = @{ MaxPerCore = 3; CPUThreshold = 75 }  # VPS Forex Plus
+    8 = @{ MaxPerCore = 3; CPUThreshold = 75 }  # VPS Forex Max
 }
 ```
 
-### Default Settings
+### Standardized Settings
 
-If your CPU core count doesn't match the matrix:
-- Max Terminals Per Core: 2
-- CPU Threshold: 70%
+All VPS plans use consistent settings:
+- 3 Terminals Per Core
+- 75% CPU Threshold
+- 25% CPU Headroom for system tasks
 
 ## Configuration Details
 
-### Max Terminals Per Core
-- Controls how many MT4/MT5 terminals can run on each core
-- Higher core counts use lower values for stability
-- 2-core systems allow more terminals per core due to typical usage patterns
+### Terminals Per Core
+- Standard 3 terminals per core across all plans
+- Consistent performance per terminal
+- Predictable resource allocation
+- Easy capacity planning
 
 ### CPU Threshold
-- Maximum allowed CPU usage percentage per core
-- Lower thresholds on higher core counts for better stability
-- Helps prevent system overload
+- Unified 75% threshold for all configurations
+- Consistent 25% system headroom
+- Balanced performance and stability
+- Reliable terminal operation
 
 ## Monitoring
 
@@ -60,46 +64,49 @@ You can check the active configuration in the log file:
 C:\Windows\Logs\MTOptimizer\optimizer.log
 ```
 
-Look for this message at startup:
+Look for these messages:
 ```
-Using configuration for X cores: Max Y terminals per core, Z% threshold
+Using configuration for X cores: Max 3 terminals per core, 75% threshold
+Terminal count changed: [old] -> [new]
+Terminal [ID] assigned to core [number]
 ```
 
 ## Best Practices
 
-1. For 2-Core Systems:
-   - Maximum 6 terminals total (3 per core)
-   - Monitor CPU usage closely
-   - Consider closing other applications
+1. For VPS Forex Lite (2 Cores):
+   - Maximum 6 terminals total
+   - Monitor CPU usage
+   - Close unnecessary applications
 
-2. For 4-Core Systems:
-   - Maximum 8 terminals total (2 per core)
+2. For VPS Forex Pro (4 Cores):
+   - Maximum 12 terminals total
    - Good balance of performance and capacity
-   - Standard configuration for most users
-
-3. For 6-Core Systems:
-   - Maximum 12 terminals total (2 per core)
-   - Lower threshold for better stability
    - Ideal for medium workloads
 
-4. For 8-Core Systems:
-   - Maximum 16 terminals total (2 per core)
-   - Conservative threshold for reliability
-   - Perfect for heavy workloads
+3. For VPS Forex Plus (6 Cores):
+   - Maximum 18 terminals total
+   - Perfect for larger workloads
+   - Optimal terminal distribution
+
+4. For VPS Forex Max (8 Cores):
+   - Maximum 18 terminals total (limited)
+   - Highest performance configuration
+   - Best for intensive trading
 
 ## Performance Tips
 
 1. Monitor System Load:
    - Check optimizer.log for assignments
    - Watch CPU usage in Task Manager
-   - Look for stability issues
+   - Monitor terminal performance
 
-2. Adjust Terminal Count:
-   - Start with fewer terminals
-   - Add more gradually
-   - Monitor performance impact
+2. Terminal Management:
+   - Stay within VPS plan limits
+   - Monitor terminal resource usage
+   - Check core assignments
 
 3. System Optimization:
    - Close unnecessary applications
    - Keep Windows updated
    - Monitor system resources
+   - Regular log review

@@ -4,7 +4,7 @@
 # by managing process affinity using a simple round-robin approach.
 
 # Script Version
-$ScriptVersion = "2.0.3"
+$ScriptVersion = "2.0.4"
 
 # Ensure running as Administrator
 If (-NOT ([Security.Principal.WindowsPrincipal][Security.Principal.WindowsIdentity]::GetCurrent()).IsInRole([Security.Principal.WindowsBuiltInRole] "Administrator")) {   
@@ -59,21 +59,21 @@ function Remove-OldInstallation {
 # Core optimizer script
 $optimizerScript = @'
 # Script Version and Configuration
-$ScriptVersion = "2.0.3"
+$ScriptVersion = "2.0.4"
 
 # Core-based configuration matrix
 $CoreConfigs = @{
-    2 = @{ MaxPerCore = 3; CPUThreshold = 75 }
-    4 = @{ MaxPerCore = 2; CPUThreshold = 70 }
-    6 = @{ MaxPerCore = 2; CPUThreshold = 65 }
-    8 = @{ MaxPerCore = 2; CPUThreshold = 60 }
+    2 = @{ MaxPerCore = 3; CPUThreshold = 75 }  # VPS Forex Lite: 6 terminals
+    4 = @{ MaxPerCore = 3; CPUThreshold = 75 }  # VPS Forex Pro: 12 terminals
+    6 = @{ MaxPerCore = 3; CPUThreshold = 75 }  # VPS Forex Plus: 18 terminals
+    8 = @{ MaxPerCore = 3; CPUThreshold = 75 }  # VPS Forex Max: 18 terminals (limit)
 }
 
 # Default configuration
 $Config = @{
     CheckIntervalSeconds = 30
-    MaxPerCore = 2        # Will be updated based on core count
-    CPUThreshold = 70     # Will be updated based on core count
+    MaxPerCore = 3        # Standard 3 terminals per core
+    CPUThreshold = 75     # Standard 75% CPU threshold
 }
 
 # Simple state tracking
