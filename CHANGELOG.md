@@ -11,7 +11,10 @@
 - Improved uninstaller behavior:
   - Removed affinity reset during uninstall
   - Preserves terminal CPU optimizations
-  - Cleaner uninstallation process
+  - Added comprehensive uninstallation verification
+  - Process and service status checks
+  - Installation cleanup verification
+  - Detailed status reporting
 
 ## [2.0.3] - 2025-01-26
 

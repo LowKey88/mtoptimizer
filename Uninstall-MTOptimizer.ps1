@@ -50,4 +50,53 @@ foreach ($path in $paths) {
 
 Write-Host "--------------------------------"
 Write-Host "Uninstallation complete."
+
+# Verify uninstallation
+Write-Host "`nVerifying uninstallation status..."
+Write-Host "--------------------------------"
+
+# Check for remaining processes
+$remainingProcesses = Get-Process | Where-Object { 
+    $_.ProcessName -eq "mt_core_optimizer" -or 
+    $_.Path -like "*MTOptimizer*" 
+} | Select-Object Id, ProcessName, Path
+
+if ($remainingProcesses) {
+    Write-Host "Warning: Found remaining processes:"
+    $remainingProcesses | ForEach-Object {
+        Write-Host "- Process ID: $($_.Id), Name: $($_.ProcessName)"
+    }
+} else {
+    Write-Host "Status: No optimizer processes found"
+}
+
+# Check for PowerShell instances running optimizer
+$runningServices = Get-Process -Name powershell | Where-Object { 
+    $_.CommandLine -like "*MTOptimizer*" 
+} | Select-Object Id, ProcessName
+
+if ($runningServices) {
+    Write-Host "Warning: Found running services:"
+    $runningServices | ForEach-Object {
+        Write-Host "- Service ID: $($_.Id), Name: $($_.ProcessName)"
+    }
+} else {
+    Write-Host "Status: No optimizer services running"
+}
+
+# Check installation directory
+if (Test-Path "C:\Program Files\MTOptimizer") {
+    Write-Host "Warning: Installation directory still exists"
+} else {
+    Write-Host "Status: Installation directory removed"
+}
+
+# Check registry entry
+if (Get-ItemProperty -Path "HKLM:\SOFTWARE\Microsoft\Windows\CurrentVersion\Run" -Name "MTSystemOptimizer" -ErrorAction SilentlyContinue) {
+    Write-Host "Warning: Auto-start registry entry still exists"
+} else {
+    Write-Host "Status: Auto-start registry entry removed"
+}
+
+Write-Host "--------------------------------"
 Write-Host "Note: You may need to restart your computer for all changes to take effect."
