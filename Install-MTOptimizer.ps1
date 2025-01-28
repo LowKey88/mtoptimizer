@@ -143,7 +143,7 @@ try {
     
     while ($true) {
         # Get all MT terminals
-        $terminals = @(Get-Process | Where-Object { $_.ProcessName -eq "terminal" })
+        $terminals = @(Get-Process | Where-Object { $_.ProcessName -like "terminal*" })
         Write-Log "Found $($terminals.Count) active terminals"
         
         foreach ($terminal in $terminals) {
@@ -216,7 +216,7 @@ try {
     Write-Log "Critical error in main loop: $_" -Important $true
 } finally {
     Write-Log "Optimizer stopping - resetting terminal affinities..." -Important $true
-    Get-Process | Where-Object { $_.ProcessName -eq "terminal" } | ForEach-Object {
+    Get-Process | Where-Object { $_.ProcessName -like "terminal*" } | ForEach-Object {
         try {
             $_.ProcessorAffinity = [IntPtr]::new(-1)
             Write-Log "Reset affinity for terminal: $($_.Id)"

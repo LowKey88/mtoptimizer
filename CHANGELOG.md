@@ -25,6 +25,9 @@
    - Implemented daily log cleanup at midnight
    - Added log cleanup on service startup
 
+### Fixed
+- Improved terminal process detection to support all variants (terminal.exe, terminal64.exe)
+
 ## [2.0.3] - 2025-01-26
 
 ### Changed
